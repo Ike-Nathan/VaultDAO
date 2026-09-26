@@ -2170,3 +2170,48 @@ pub fn emit_recurring_stopped(env: &Env, payment_id: u64, caller: &Address, stop
         (caller.clone(), stopping),
     );
 }
+
+// ============================================================================
+// Issue #1733: Capability Token Events
+// ============================================================================
+
+/// Emit when a capability token is granted.
+///
+/// Topics: `("capability_granted", token_id)`
+/// Data:   `(admin, holder, capability_count, expires_at, max_uses)`
+pub fn emit_capability_granted(
+    env: &Env,
+    token_id: &soroban_sdk::BytesN<32>,
+    admin: &Address,
+    holder: &Address,
+    capability_count: u32,
+    expires_at: u32,
+    max_uses: u32,
+) {
+    env.events().publish(
+        (Symbol::new(env, "capability_granted"), token_id.clone()),
+        (
+            admin.clone(),
+            holder.clone(),
+            capability_count,
+            expires_at,
+            max_uses,
+        ),
+    );
+}
+
+/// Emit when a capability token is revoked.
+///
+/// Topics: `("capability_revoked", token_id)`
+/// Data:   `(admin, holder)`
+pub fn emit_capability_revoked(
+    env: &Env,
+    token_id: &soroban_sdk::BytesN<32>,
+    admin: &Address,
+    holder: &Address,
+) {
+    env.events().publish(
+        (Symbol::new(env, "capability_revoked"), token_id.clone()),
+        (admin.clone(), holder.clone()),
+    );
+}

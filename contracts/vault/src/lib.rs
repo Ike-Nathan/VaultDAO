@@ -17451,6 +17451,15 @@ impl VaultDAO {
         }
         storage::set_capability_token(&env, &token);
         storage::extend_instance_ttl(&env);
+        events::emit_capability_granted(
+            &env,
+            &token.id,
+            &admin,
+            &token.granted_to,
+            token.capabilities.len(),
+            token.expires_at,
+            token.max_uses,
+        );
         Ok(())
     }
 
@@ -17527,6 +17536,7 @@ impl VaultDAO {
             storage::get_capability_token(&env, &token_id).ok_or(VaultError::CapabilityNotFound)?;
         token.revoked = true;
         storage::set_capability_token(&env, &token);
+        events::emit_capability_revoked(&env, &token_id, &admin, &token.granted_to);
         Ok(())
     }
 

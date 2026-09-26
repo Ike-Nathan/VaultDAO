@@ -1747,3 +1747,10 @@ It returns registered event type mappings (`EventNormalizer.registeredTypes()`).
 | `recurring_paused` | `(symbol, payment_id: u64)` | `(caller: Address, paused_at_ledger: u64)` |
 | `recurring_resumed` | `(symbol, payment_id: u64)` | `(caller: Address, next_payment_ledger: u64)` |
 | `recurring_stopped` | `(symbol, payment_id: u64)` | `(caller: Address, stopping: bool)` |
+
+## Capability token events (Issue #1733)
+
+| Topic | Topics tuple | Data |
+| --- | --- | --- |
+| `capability_granted` | `(symbol, token_id: BytesN<32>)` | `(admin, holder, capability_count: u32, expires_at: u32, max_uses: u32)` |
+| `capability_revoked` | `(symbol, token_id: BytesN<32>)` | `(admin, holder)` |
