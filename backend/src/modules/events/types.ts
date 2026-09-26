@@ -29,6 +29,8 @@ export enum EventType {
 
   // ── Role / admin ──────────────────────────────────────────────────────────
   ROLE_ASSIGNED = "ROLE_ASSIGNED",
+  RECIPIENT_LIST_CHANGED = "RECIPIENT_LIST_CHANGED",
+  RECIPIENT_LIST_BULK_CHANGED = "RECIPIENT_LIST_BULK_CHANGED",
   CONFIG_UPDATED = "CONFIG_UPDATED",
   SIGNER_ADDED = "SIGNER_ADDED",
   SIGNER_REMOVED = "SIGNER_REMOVED",
@@ -255,6 +257,18 @@ export interface QuorumReachedData {
 }
 
 // ── Role / admin data interfaces ──────────────────────────────────────────────
+
+export interface RecipientListChangedData {
+  readonly mode: string;
+  readonly address: string;
+  readonly added: boolean;
+}
+
+export interface RecipientListBulkChangedData {
+  readonly mode: string;
+  readonly addresses: string[];
+  readonly added: boolean;
+}
 
 export interface RoleAssignedData {
   readonly address: string;
@@ -679,6 +693,8 @@ export const CONTRACT_EVENT_MAP: Record<string, EventType> = {
 
   // Role / admin
   role_assigned: EventType.ROLE_ASSIGNED,
+  recipient_list_changed: EventType.RECIPIENT_LIST_CHANGED,
+  recipient_list_bulk_changed: EventType.RECIPIENT_LIST_BULK_CHANGED,
   config_updated: EventType.CONFIG_UPDATED,
   signer_added: EventType.SIGNER_ADDED,
   signer_removed: EventType.SIGNER_REMOVED,
