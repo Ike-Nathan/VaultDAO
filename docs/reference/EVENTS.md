@@ -209,6 +209,20 @@ For each event:
   1. `proposal_id: u64`
   2. `vetoer: Address`
 
+#### `veto_addr_added`
+
+- **Contract topic**: `veto_addr_added`
+- **Published data**:
+  1. `admin: Address`
+  2. `addr: Address`
+
+#### `veto_addr_removed`
+
+- **Contract topic**: `veto_addr_removed`
+- **Published data**:
+  1. `admin: Address`
+  2. `addr: Address`
+
 #### `proposal_amended`
 
 - **Contract topic**: `proposal_amended`

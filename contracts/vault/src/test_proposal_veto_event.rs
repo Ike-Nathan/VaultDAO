@@ -124,3 +124,27 @@ fn test_veto_emits_proposal_vetoed_event_with_correct_fields() {
     let proposal = client.get_proposal(&proposal_id);
     assert_eq!(proposal.status, crate::types::ProposalStatus::Vetoed);
 }
+
+fn has_event(env: &Env, name: &str) -> bool {
+    let topic = Symbol::new(env, name);
+    env.events().all().iter().any(|(_, topics, _)| {
+        topics
+            .first()
+            .and_then(|t| Symbol::try_from_val(env, &t).ok())
+            .map(|s| s == topic)
+            .unwrap_or(false)
+    })
+}
+
+#[test]
+fn test_veto_address_management_emits_events() {
+    let env = Env::default();
+    let (client, admin, _signer1, _vetoer, _token) = setup(&env);
+    let new_vetoer = Address::generate(&env);
+
+    client.add_veto_address(&admin, &new_vetoer);
+    assert!(has_event(&env, "veto_addr_added"));
+
+    client.remove_veto_address(&admin, &new_vetoer);
+    assert!(has_event(&env, "veto_addr_removed"));
+}

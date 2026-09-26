@@ -3436,6 +3436,7 @@ impl VaultDAO {
         config.veto_addresses.push_back(addr.clone());
         storage::set_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_veto_addr_added(&env, &admin, &addr);
 
         Ok(())
     }
@@ -3471,6 +3472,7 @@ impl VaultDAO {
         config.veto_addresses = new_veto_addresses;
         storage::set_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_veto_addr_removed(&env, &admin, &addr);
 
         Ok(())
     }
