@@ -45,6 +45,8 @@ use crate::types_balance_snapshot::BalanceSnapshot;
 pub enum DataKey {
     /// Contract initialization flag
     Initialized,
+    /// Storage schema version (issue #1748) -> u32
+    SchemaVersion,
     /// Vault configuration -> Config
     Config,
     /// Role assignment for address -> Role
@@ -630,7 +632,36 @@ pub fn set_initialized(env: &Env) {
 // Config
 // ============================================================================
 
+/// Current storage schema version. Bump when stored types change and add a
+/// step to `VaultDAO::migrate`.
+pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+
+/// Stored schema version; deployments that predate versioning report 0.
+pub fn get_schema_version(env: &Env) -> u32 {
+    env.storage()
+        .instance()
+        .get(&DataKey::SchemaVersion)
+        .unwrap_or(0)
+}
+
+pub fn set_schema_version(env: &Env, version: u32) {
+    env.storage().instance().set(&DataKey::SchemaVersion, &version);
+}
+
 pub fn get_config(env: &Env) -> Result<Config, VaultError> {
+    let config: Config = env
+        .storage()
+        .instance()
+        .get(&DataKey::Config)
+        .ok_or(VaultError::NotInitialized)?;
+    if get_schema_version(env) != CURRENT_SCHEMA_VERSION {
+        return Err(VaultError::SchemaVersionMismatch);
+    }
+    Ok(config)
+}
+
+/// Config read that skips the schema version check (used only by `migrate`).
+pub fn get_config_unchecked(env: &Env) -> Result<Config, VaultError> {
     env.storage()
         .instance()
         .get(&DataKey::Config)
@@ -3200,9 +3231,7 @@ fn remove_from_delegators_index(env: &Env, delegate: &Address, delegator: &Addre
 }
 
 pub fn get_delegators_for(env: &Env, delegate: &Address) -> Vec<Address> {
-    env.storage()
-        .persistent()
-        .get(&DataKey::DelegatorsFor(delegate.clone()))
+    get_migrating(env, &DataKey::DelegatorsFor(delegate.clone()))
         .unwrap_or_else(|| Vec::new(env))
 }
 
@@ -3677,55 +3706,74 @@ pub fn get_metrics_for_period(env: &Env, from_week: u64, to_week: u64) -> VaultM
 // Delegation Storage Helpers
 // ============================================================
 
+/// Read a key from persistent storage, lazily migrating a legacy instance
+/// entry (issue #1740) into persistent storage when found.
+fn get_migrating<V>(env: &Env, key: &DataKey) -> Option<V>
+where
+    V: soroban_sdk::TryFromVal<Env, soroban_sdk::Val> + soroban_sdk::IntoVal<Env, soroban_sdk::Val>,
+{
+    if let Some(v) = env.storage().persistent().get::<DataKey, V>(key) {
+        env.storage()
+            .persistent()
+            .extend_ttl(key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL);
+        return Some(v);
+    }
+    if let Some(v) = env.storage().instance().get::<DataKey, V>(key) {
+        env.storage().instance().remove(key);
+        env.storage().persistent().set(key, &v);
+        env.storage()
+            .persistent()
+            .extend_ttl(key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL);
+        return Some(v);
+    }
+    None
+}
+
 pub fn get_delegation(env: &Env, delegator: &Address) -> Delegation {
-    env.storage()
-        .instance()
-        .get(&DataKey::Delegation(delegator.clone()))
-        .unwrap_or(Delegation {
+    get_migrating::<Delegation>(env, &DataKey::Delegation(delegator.clone())).unwrap_or(
+        Delegation {
             delegator: delegator.clone(),
             delegate: delegator.clone(),
             created_at: 0,
             expiry_ledger: 0,
             is_active: false,
             chain_depth: 0,
-        })
+        },
+    )
 }
 
 pub fn set_delegation(env: &Env, delegation: &Delegation) {
-    env.storage().instance().set(
-        &DataKey::Delegation(delegation.delegator.clone()),
-        delegation,
-    );
+    let key = DataKey::Delegation(delegation.delegator.clone());
+    env.storage().instance().remove(&key);
+    env.storage().persistent().set(&key, delegation);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL);
 }
 
 pub fn remove_delegation(env: &Env, delegator: &Address) {
-    env.storage()
-        .instance()
-        .remove(&DataKey::Delegation(delegator.clone()));
+    let key = DataKey::Delegation(delegator.clone());
+    env.storage().instance().remove(&key);
+    env.storage().persistent().remove(&key);
 }
 
 pub fn add_delegator_index(env: &Env, delegate: &Address, delegator: &Address) {
-    let mut list: Vec<Address> = env
-        .storage()
-        .instance()
-        .get(&DataKey::DelegatorsFor(delegate.clone()))
-        .unwrap_or(Vec::new(env));
+    let key = DataKey::DelegatorsFor(delegate.clone());
+    let mut list: Vec<Address> = get_migrating(env, &key).unwrap_or(Vec::new(env));
 
     if !list.contains(delegator) {
         list.push_back(delegator.clone());
     }
 
+    env.storage().persistent().set(&key, &list);
     env.storage()
-        .instance()
-        .set(&DataKey::DelegatorsFor(delegate.clone()), &list);
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL);
 }
 
 pub fn remove_delegator_index(env: &Env, delegate: &Address, delegator: &Address) {
-    let list: Vec<Address> = env
-        .storage()
-        .instance()
-        .get(&DataKey::DelegatorsFor(delegate.clone()))
-        .unwrap_or(Vec::new(env));
+    let key = DataKey::DelegatorsFor(delegate.clone());
+    let list: Vec<Address> = get_migrating(env, &key).unwrap_or(Vec::new(env));
 
     let mut updated = Vec::new(env);
 
@@ -3735,9 +3783,10 @@ pub fn remove_delegator_index(env: &Env, delegate: &Address, delegator: &Address
         }
     }
 
+    env.storage().persistent().set(&key, &updated);
     env.storage()
-        .instance()
-        .set(&DataKey::DelegatorsFor(delegate.clone()), &updated);
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL);
 }
 
 // ============================================================================
@@ -4275,21 +4324,22 @@ pub fn var_template_exists(env: &Env, id: u64) -> bool {
 }
 
 pub fn var_template_name_exists(env: &Env, name: &Symbol) -> bool {
-    env.storage()
-        .instance()
-        .has(&DataKey::VarTemplateName(name.clone()))
+    get_migrating::<u64>(env, &DataKey::VarTemplateName(name.clone())).is_some()
 }
 
 pub fn set_var_template_name(env: &Env, name: &Symbol, id: u64) {
+    let key = DataKey::VarTemplateName(name.clone());
+    env.storage().instance().remove(&key);
+    env.storage().persistent().set(&key, &id);
     env.storage()
-        .instance()
-        .set(&DataKey::VarTemplateName(name.clone()), &id);
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL);
 }
 
 pub fn remove_var_template_name(env: &Env, name: &Symbol) {
-    env.storage()
-        .instance()
-        .remove(&DataKey::VarTemplateName(name.clone()));
+    let key = DataKey::VarTemplateName(name.clone());
+    env.storage().instance().remove(&key);
+    env.storage().persistent().remove(&key);
 }
 
 pub fn get_proposal_var_ref(env: &Env, proposal_id: u64) -> Option<TemplateVarRef> {
