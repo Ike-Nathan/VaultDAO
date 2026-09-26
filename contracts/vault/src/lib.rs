@@ -141,6 +141,8 @@ use helpers::*;
 #[cfg(test)]
 mod test_spending_limit_invariants_proptest;
 #[cfg(test)]
+mod test_stream_vesting_invariants_proptest;
+#[cfg(test)]
 mod test_spending_refund_buckets;
 // #[cfg(test)]
 // mod test_fan_out_streams;
@@ -3222,6 +3224,7 @@ impl VaultDAO {
         config.veto_addresses.push_back(addr.clone());
         storage::set_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_veto_addr_added(&env, &admin, &addr);
 
         Ok(())
     }
@@ -3257,6 +3260,7 @@ impl VaultDAO {
         config.veto_addresses = new_veto_addresses;
         storage::set_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_veto_addr_removed(&env, &admin, &addr);
 
         Ok(())
     }
@@ -7450,8 +7454,10 @@ impl VaultDAO {
             return Err(VaultError::Unauthorized);
         }
 
+        let enabled = !matches!(mode, ListMode::Disabled);
         storage::set_list_mode(&env, mode);
         storage::extend_instance_ttl(&env);
+        events::emit_recipient_list_changed(&env, Symbol::new(&env, "list_mode"), &admin, enabled);
 
         Ok(())
     }
@@ -7492,6 +7498,12 @@ impl VaultDAO {
 
         storage::extend_instance_ttl(env);
         events::emit_config_updated(env, actor);
+        events::emit_recipient_list_changed(
+            env,
+            Symbol::new(env, "whitelist"),
+            addr,
+            matches!(action, types::ListAction::Add),
+        );
 
         Ok(())
     }
@@ -7554,6 +7566,7 @@ impl VaultDAO {
 
         storage::add_to_blacklist(&env, &addr);
         storage::extend_instance_ttl(&env);
+        events::emit_recipient_list_changed(&env, Symbol::new(&env, "blacklist"), &addr, true);
 
         Ok(())
     }
@@ -7579,6 +7592,7 @@ impl VaultDAO {
 
         storage::remove_from_blacklist(&env, &addr);
         storage::extend_instance_ttl(&env);
+        events::emit_recipient_list_changed(&env, Symbol::new(&env, "blacklist"), &addr, false);
 
         Ok(())
     }
@@ -7601,14 +7615,17 @@ impl VaultDAO {
         if addresses.len() > 50 {
             return Err(VaultError::BatchTooLarge);
         }
+        let mut changed = Vec::new(&env);
         for i in 0..addresses.len() {
             if let Some(addr) = addresses.get(i) {
                 if !storage::is_whitelisted(&env, &addr) {
                     storage::add_to_whitelist(&env, &addr);
+                    changed.push_back(addr.clone());
                 }
             }
         }
         events::emit_config_updated(&env, &admin);
+        events::emit_recipient_list_bulk_changed(&env, Symbol::new(&env, "whitelist"), changed, true);
         Ok(())
     }
 
@@ -7625,14 +7642,17 @@ impl VaultDAO {
         if addresses.len() > 50 {
             return Err(VaultError::BatchTooLarge);
         }
+        let mut changed = Vec::new(&env);
         for i in 0..addresses.len() {
             if let Some(addr) = addresses.get(i) {
                 if storage::is_whitelisted(&env, &addr) {
                     storage::remove_from_whitelist(&env, &addr);
+                    changed.push_back(addr.clone());
                 }
             }
         }
         events::emit_config_updated(&env, &admin);
+        events::emit_recipient_list_bulk_changed(&env, Symbol::new(&env, "whitelist"), changed, false);
         Ok(())
     }
 
@@ -7649,14 +7669,17 @@ impl VaultDAO {
         if addresses.len() > 50 {
             return Err(VaultError::BatchTooLarge);
         }
+        let mut changed = Vec::new(&env);
         for i in 0..addresses.len() {
             if let Some(addr) = addresses.get(i) {
                 if !storage::is_blacklisted(&env, &addr) {
                     storage::add_to_blacklist(&env, &addr);
+                    changed.push_back(addr.clone());
                 }
             }
         }
         events::emit_config_updated(&env, &admin);
+        events::emit_recipient_list_bulk_changed(&env, Symbol::new(&env, "blacklist"), changed, true);
         Ok(())
     }
 
@@ -7673,14 +7696,17 @@ impl VaultDAO {
         if addresses.len() > 50 {
             return Err(VaultError::BatchTooLarge);
         }
+        let mut changed = Vec::new(&env);
         for i in 0..addresses.len() {
             if let Some(addr) = addresses.get(i) {
                 if storage::is_blacklisted(&env, &addr) {
                     storage::remove_from_blacklist(&env, &addr);
+                    changed.push_back(addr.clone());
                 }
             }
         }
         events::emit_config_updated(&env, &admin);
+        events::emit_recipient_list_bulk_changed(&env, Symbol::new(&env, "blacklist"), changed, false);
         Ok(())
     }
 
@@ -17063,6 +17089,7 @@ impl VaultDAO {
         }
         storage::set_whitelist_entry(&env, &recipient, &entry);
         storage::extend_instance_ttl(&env);
+        events::emit_recipient_list_changed(&env, Symbol::new(&env, "wl_entry"), &recipient, true);
         Ok(())
     }
 
@@ -17081,6 +17108,7 @@ impl VaultDAO {
             return Err(VaultError::AddressNotOnList);
         }
         storage::remove_whitelist_entry(&env, &recipient);
+        events::emit_recipient_list_changed(&env, Symbol::new(&env, "wl_entry"), &recipient, false);
         Ok(())
     }
 

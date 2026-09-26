@@ -209,6 +209,36 @@ For each event:
   1. `proposal_id: u64`
   2. `vetoer: Address`
 
+#### `veto_addr_added`
+
+- **Contract topic**: `veto_addr_added`
+- **Published data**:
+  1. `admin: Address`
+  2. `addr: Address`
+
+#### `veto_addr_removed`
+
+- **Contract topic**: `veto_addr_removed`
+- **Published data**:
+  1. `admin: Address`
+  2. `addr: Address`
+
+#### `recipient_list_changed`
+
+- **Contract topic**: `recipient_list_changed`
+- **Published data**:
+  1. `mode: Symbol` (`whitelist`, `blacklist`, `wl_entry`, or `list_mode`)
+  2. `address: Address` (the affected address; the acting admin for `list_mode`)
+  3. `added: bool` (for `list_mode`: true when a list is enabled)
+
+#### `recipient_list_bulk_changed`
+
+- **Contract topic**: `recipient_list_bulk_changed`
+- **Published data**:
+  1. `mode: Symbol` (`whitelist` or `blacklist`)
+  2. `addresses: Vec<Address>` (only addresses actually changed)
+  3. `added: bool`
+
 #### `proposal_amended`
 
 - **Contract topic**: `proposal_amended`

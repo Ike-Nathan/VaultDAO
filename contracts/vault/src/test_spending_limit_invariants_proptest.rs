@@ -47,7 +47,7 @@ fn action_strategy() -> impl Strategy<Value = Action> {
     ]
 }
 
-fn setup(env: &Env) -> (VaultDAOClient<'_>, Address, Address) {
+pub(crate) fn setup(env: &Env) -> (VaultDAOClient<'_>, Address, Address) {
     let contract_id = env.register(VaultDAO, ());
     let client = VaultDAOClient::new(env, &contract_id);
     let admin = Address::generate(env);

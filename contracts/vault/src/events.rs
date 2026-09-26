@@ -232,6 +232,40 @@ pub fn emit_proposal_vetoed(env: &Env, proposal_id: u64, vetoer: &Address) {
     );
 }
 
+/// Emit when an address is added to the veto list.
+pub fn emit_veto_addr_added(env: &Env, admin: &Address, addr: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "veto_addr_added"),),
+        (admin.clone(), addr.clone()),
+    );
+}
+
+/// Emit when an address is removed from the veto list.
+pub fn emit_veto_addr_removed(env: &Env, admin: &Address, addr: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "veto_addr_removed"),),
+        (admin.clone(), addr.clone()),
+    );
+}
+
+/// Emit when an address is added to or removed from a recipient list.
+/// `mode` is `whitelist`, `blacklist`, `wl_entry` or `list_mode` (mode change,
+/// where `addr` is the acting admin and `added` is true when a list is enabled).
+pub fn emit_recipient_list_changed(env: &Env, mode: Symbol, addr: &Address, added: bool) {
+    env.events().publish(
+        (Symbol::new(env, "recipient_list_changed"),),
+        (mode, addr.clone(), added),
+    );
+}
+
+/// Emit once for a bulk recipient list change with the addresses actually changed.
+pub fn emit_recipient_list_bulk_changed(env: &Env, mode: Symbol, addrs: Vec<Address>, added: bool) {
+    env.events().publish(
+        (Symbol::new(env, "recipient_list_bulk_changed"),),
+        (mode, addrs, added),
+    );
+}
+
 /// Emit when a proposal is amended.
 pub fn emit_proposal_amended(env: &Env, amendment: &ProposalAmendment) {
     env.events().publish(

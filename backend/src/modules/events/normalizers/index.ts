@@ -77,6 +77,10 @@ export class EventNormalizer {
       // ── Role / admin ────────────────────────────────────────────────────
       case EventType.INITIALIZED:
         return SnapshotNormalizer.normalizeInitialized(event);
+      case EventType.RECIPIENT_LIST_CHANGED:
+        return RoleNormalizer.normalizeRecipientListChanged(event);
+      case EventType.RECIPIENT_LIST_BULK_CHANGED:
+        return RoleNormalizer.normalizeRecipientListBulkChanged(event);
       case EventType.ROLE_ASSIGNED:
         return RoleNormalizer.normalizeRoleAssigned(event);
       case EventType.SIGNER_ADDED:

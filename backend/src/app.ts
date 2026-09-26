@@ -451,6 +451,7 @@ export async function createApp(env: BackendEnv, runtime: BackendRuntime) {
 
   v1Router.use(
     "/contracts",
+    authMiddleware,
     hmacMiddleware,
     createContractsRouter(registry, adminAuthMiddleware, (runtime as any).contractStateValidator),
   );
@@ -459,6 +460,7 @@ export async function createApp(env: BackendEnv, runtime: BackendRuntime) {
   if (runtime.jobManager && runtime.scheduledJobRunner) {
     v1Router.use(
       "/jobs",
+      authMiddleware,
       hmacMiddleware,
       createJobsRouter(runtime.jobManager, runtime.scheduledJobRunner, adminAuthMiddleware),
     );
