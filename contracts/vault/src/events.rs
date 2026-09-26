@@ -2135,6 +2135,142 @@ pub fn emit_signers_replaced(env: &Env, actor: &Address, old_count: u32, new_cou
 }
 
 // ============================================================================
+// Issue #1732: Recurring Payment Status Events
+// ============================================================================
+
+/// Emit when a recurring payment is paused.
+///
+/// Topics: `("recurring_paused", payment_id)`
+/// Data:   `(caller, paused_at_ledger)`
+pub fn emit_recurring_paused(env: &Env, payment_id: u64, caller: &Address, paused_at: u64) {
+    env.events().publish(
+        (Symbol::new(env, "recurring_paused"), payment_id),
+        (caller.clone(), paused_at),
+    );
+}
+
+/// Emit when a recurring payment is resumed.
+///
+/// Topics: `("recurring_resumed", payment_id)`
+/// Data:   `(caller, next_payment_ledger)`
+pub fn emit_recurring_resumed(env: &Env, payment_id: u64, caller: &Address, next_ledger: u64) {
+    env.events().publish(
+        (Symbol::new(env, "recurring_resumed"), payment_id),
+        (caller.clone(), next_ledger),
+    );
+}
+
+/// Emit when a recurring payment is stopped (or moved to Stopping).
+///
+/// Topics: `("recurring_stopped", payment_id)`
+/// Data:   `(caller, stopping)` where `stopping` is true if grace executions remain.
+pub fn emit_recurring_stopped(env: &Env, payment_id: u64, caller: &Address, stopping: bool) {
+    env.events().publish(
+        (Symbol::new(env, "recurring_stopped"), payment_id),
+        (caller.clone(), stopping),
+    );
+}
+
+// ============================================================================
+// Issue #1733: Capability Token Events
+// ============================================================================
+
+/// Emit when a capability token is granted.
+///
+/// Topics: `("capability_granted", token_id)`
+/// Data:   `(admin, holder, capability_count, expires_at, max_uses)`
+pub fn emit_capability_granted(
+    env: &Env,
+    token_id: &soroban_sdk::BytesN<32>,
+    admin: &Address,
+    holder: &Address,
+    capability_count: u32,
+    expires_at: u32,
+    max_uses: u32,
+) {
+    env.events().publish(
+        (Symbol::new(env, "capability_granted"), token_id.clone()),
+        (
+            admin.clone(),
+            holder.clone(),
+            capability_count,
+            expires_at,
+            max_uses,
+        ),
+    );
+}
+
+/// Emit when a capability token is revoked.
+///
+/// Topics: `("capability_revoked", token_id)`
+/// Data:   `(admin, holder)`
+pub fn emit_capability_revoked(
+    env: &Env,
+    token_id: &soroban_sdk::BytesN<32>,
+    admin: &Address,
+    holder: &Address,
+) {
+    env.events().publish(
+        (Symbol::new(env, "capability_revoked"), token_id.clone()),
+        (admin.clone(), holder.clone()),
+    );
+}
+
+// ============================================================================
+// Issue #1734: Tag Taxonomy Events
+// ============================================================================
+
+/// Emit when a hierarchical tag is created.
+///
+/// Topics: `("tag_created", tag_id)`
+/// Data:   `(caller, name, parent_id)`
+pub fn emit_tag_created(
+    env: &Env,
+    tag_id: u64,
+    caller: &Address,
+    name: &Symbol,
+    parent_id: Option<u64>,
+) {
+    env.events().publish(
+        (Symbol::new(env, "tag_created"), tag_id),
+        (caller.clone(), name.clone(), parent_id),
+    );
+}
+
+/// Emit when a hierarchical tag is deleted.
+///
+/// Topics: `("tag_deleted", tag_id)`
+/// Data:   `caller`
+pub fn emit_tag_deleted(env: &Env, tag_id: u64, caller: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "tag_deleted"), tag_id),
+        caller.clone(),
+    );
+}
+
+/// Emit when the tags on a proposal change (add, remove, bulk add, assign).
+///
+/// Topics: `("proposal_tags_changed", proposal_id)`
+/// Data:   `(caller, tag_count)` where `tag_count` is the resulting tag count.
+pub fn emit_proposal_tags_changed(env: &Env, proposal_id: u64, caller: &Address, tag_count: u32) {
+    env.events().publish(
+        (Symbol::new(env, "proposal_tags_changed"), proposal_id),
+        (caller.clone(), tag_count),
+    );
+}
+
+// ============================================================================
+// Issue #1735: Governance / Voting Config Change Event
+// ============================================================================
+
+/// Emit when a governance-critical configuration parameter is changed.
+///
+/// Topics: `("config_param_changed", param)`
+/// Data:   `admin`
+pub fn emit_config_param_changed(env: &Env, param: Symbol, admin: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "config_param_changed"), param),
+        admin.clone(),
 // Issue #1736: Variable Template CRUD Events
 // ============================================================================
 

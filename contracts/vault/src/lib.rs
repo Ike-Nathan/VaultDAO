@@ -3669,6 +3669,7 @@ impl VaultDAO {
 
         storage::set_max_amendments(&env, max_amendments);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "max_amendments"), &admin);
 
         Ok(())
     }
@@ -6333,6 +6334,7 @@ impl VaultDAO {
 
         storage::set_insurance_voting_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "insurance_vote"), &admin);
 
         Ok(())
     }
@@ -6568,6 +6570,7 @@ impl VaultDAO {
         config.burst_factor = burst_factor;
         storage::set_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "stream_rate"), &admin);
 
         Ok(())
     }
@@ -6876,6 +6879,13 @@ impl VaultDAO {
         storage::set_recurring_payment(&env, &payment);
         storage::extend_instance_ttl(&env);
 
+        events::emit_recurring_stopped(
+            &env,
+            payment_id,
+            &caller,
+            payment.status == crate::types::RecurringStatus::Stopping,
+        );
+
         Ok(())
     }
 
@@ -6911,6 +6921,7 @@ impl VaultDAO {
         payment.paused_at_ledger = env.ledger().sequence() as u64;
         storage::set_recurring_payment(&env, &payment);
         storage::extend_instance_ttl(&env);
+        events::emit_recurring_paused(&env, payment_id, &caller, payment.paused_at_ledger);
 
         Ok(())
     }
@@ -6955,6 +6966,7 @@ impl VaultDAO {
         payment.paused_at_ledger = 0;
         storage::set_recurring_payment(&env, &payment);
         storage::extend_instance_ttl(&env);
+        events::emit_recurring_resumed(&env, payment_id, &caller, payment.next_payment_ledger);
 
         Ok(())
     }
@@ -8940,6 +8952,7 @@ impl VaultDAO {
         storage::set_proposal(&env, &proposal);
         storage::tag_index_add(&env, &tag, proposal_id);
         storage::extend_instance_ttl(&env);
+        events::emit_proposal_tags_changed(&env, proposal_id, &caller, proposal.tags.len());
 
         Ok(())
     }
@@ -8978,6 +8991,7 @@ impl VaultDAO {
         storage::set_proposal(&env, &proposal);
         storage::tag_index_remove(&env, &tag, proposal_id);
         storage::extend_instance_ttl(&env);
+        events::emit_proposal_tags_changed(&env, proposal_id, &caller, proposal.tags.len());
 
         Ok(())
     }
@@ -9053,6 +9067,7 @@ impl VaultDAO {
 
         storage::set_proposal(&env, &proposal);
         storage::extend_instance_ttl(&env);
+        events::emit_proposal_tags_changed(&env, proposal_id, &caller, proposal.tags.len());
 
         Ok(())
     }
@@ -9111,6 +9126,7 @@ impl VaultDAO {
         }
         storage::increment_htag_count(&env);
         storage::extend_instance_ttl(&env);
+        events::emit_tag_created(&env, tag_id, &caller, &name, parent_id);
 
         Ok(tag_id)
     }
@@ -9157,6 +9173,7 @@ impl VaultDAO {
 
         storage::set_proposal_htag_ids(&env, proposal_id, &current_ids);
         storage::extend_instance_ttl(&env);
+        events::emit_proposal_tags_changed(&env, proposal_id, &caller, current_ids.len());
 
         Ok(())
     }
@@ -9260,6 +9277,7 @@ impl VaultDAO {
             .remove(&storage::DataKey::HTag(tag_id));
         storage::decrement_htag_count(&env);
         storage::extend_instance_ttl(&env);
+        events::emit_tag_deleted(&env, tag_id, &caller);
 
         Ok(())
     }
@@ -9283,6 +9301,7 @@ impl VaultDAO {
 
         storage::set_cost_model(&env, &model);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "cost_model"), &caller);
 
         Ok(())
     }
@@ -9767,6 +9786,7 @@ impl VaultDAO {
 
         storage::set_cold_signer_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "cold_signer"), &caller);
 
         Ok(())
     }
@@ -13878,6 +13898,7 @@ impl VaultDAO {
 
         storage::set_time_weighted_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "time_weighted"), &admin);
 
         Ok(())
     }
@@ -17287,6 +17308,15 @@ impl VaultDAO {
         }
         storage::set_capability_token(&env, &token);
         storage::extend_instance_ttl(&env);
+        events::emit_capability_granted(
+            &env,
+            &token.id,
+            &admin,
+            &token.granted_to,
+            token.capabilities.len(),
+            token.expires_at,
+            token.max_uses,
+        );
         Ok(())
     }
 
@@ -17363,6 +17393,7 @@ impl VaultDAO {
             storage::get_capability_token(&env, &token_id).ok_or(VaultError::CapabilityNotFound)?;
         token.revoked = true;
         storage::set_capability_token(&env, &token);
+        events::emit_capability_revoked(&env, &token_id, &admin, &token.granted_to);
         Ok(())
     }
 
@@ -17761,6 +17792,7 @@ impl VaultDAO {
             return Err(VaultError::InvalidAmount);
         }
         storage::set_snapshot_interval(&env, interval);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "snapshot_intvl"), &admin);
         Ok(())
     }
 
@@ -17969,6 +18001,7 @@ impl VaultDAO {
             return Err(VaultError::InvalidAmount);
         }
         storage::set_governance_threshold(&env, percentage);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "gov_threshold"), &admin);
         Ok(())
     }
 

@@ -1773,3 +1773,36 @@ The backend exposes:
 - `GET /events/types`
 
 It returns registered event type mappings (`EventNormalizer.registeredTypes()`). Use it to verify topic strings and the corresponding `EventType` values in your deployment.
+
+## Recurring payment status events (Issue #1732)
+
+| Topic | Topics tuple | Data |
+| --- | --- | --- |
+| `recurring_paused` | `(symbol, payment_id: u64)` | `(caller: Address, paused_at_ledger: u64)` |
+| `recurring_resumed` | `(symbol, payment_id: u64)` | `(caller: Address, next_payment_ledger: u64)` |
+| `recurring_stopped` | `(symbol, payment_id: u64)` | `(caller: Address, stopping: bool)` |
+
+## Capability token events (Issue #1733)
+
+| Topic | Topics tuple | Data |
+| --- | --- | --- |
+| `capability_granted` | `(symbol, token_id: BytesN<32>)` | `(admin, holder, capability_count: u32, expires_at: u32, max_uses: u32)` |
+| `capability_revoked` | `(symbol, token_id: BytesN<32>)` | `(admin, holder)` |
+
+## Tag taxonomy events (Issue #1734)
+
+| Topic | Topics tuple | Data |
+| --- | --- | --- |
+| `tag_created` | `(symbol, tag_id: u64)` | `(caller, name: Symbol, parent_id: Option<u64>)` |
+| `tag_deleted` | `(symbol, tag_id: u64)` | `caller` |
+| `proposal_tags_changed` | `(symbol, proposal_id: u64)` | `(caller, tag_count: u32)` |
+
+`proposal_tags_changed` is emitted by `add_proposal_tag`, `remove_proposal_tag`, `bulk_add_tags` and `assign_tags` (only when something changed for add/bulk).
+
+## Config parameter change event (Issue #1735)
+
+| Topic | Topics tuple | Data |
+| --- | --- | --- |
+| `config_param_changed` | `(symbol, param: Symbol)` | `admin: Address` |
+
+`param` is one of: `time_weighted`, `gov_threshold`, `cold_signer`, `max_amendments`, `insurance_vote`, `stream_rate`, `snapshot_intvl`, `cost_model`.
