@@ -1764,3 +1764,11 @@ It returns registered event type mappings (`EventNormalizer.registeredTypes()`).
 | `proposal_tags_changed` | `(symbol, proposal_id: u64)` | `(caller, tag_count: u32)` |
 
 `proposal_tags_changed` is emitted by `add_proposal_tag`, `remove_proposal_tag`, `bulk_add_tags` and `assign_tags` (only when something changed for add/bulk).
+
+## Config parameter change event (Issue #1735)
+
+| Topic | Topics tuple | Data |
+| --- | --- | --- |
+| `config_param_changed` | `(symbol, param: Symbol)` | `admin: Address` |
+
+`param` is one of: `time_weighted`, `gov_threshold`, `cold_signer`, `max_amendments`, `insurance_vote`, `stream_rate`, `snapshot_intvl`, `cost_model`.

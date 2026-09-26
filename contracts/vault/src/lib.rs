@@ -3883,6 +3883,7 @@ impl VaultDAO {
 
         storage::set_max_amendments(&env, max_amendments);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "max_amendments"), &admin);
 
         Ok(())
     }
@@ -6547,6 +6548,7 @@ impl VaultDAO {
 
         storage::set_insurance_voting_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "insurance_vote"), &admin);
 
         Ok(())
     }
@@ -6782,6 +6784,7 @@ impl VaultDAO {
         config.burst_factor = burst_factor;
         storage::set_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "stream_rate"), &admin);
 
         Ok(())
     }
@@ -9512,6 +9515,7 @@ impl VaultDAO {
 
         storage::set_cost_model(&env, &model);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "cost_model"), &caller);
 
         Ok(())
     }
@@ -9983,6 +9987,7 @@ impl VaultDAO {
 
         storage::set_cold_signer_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "cold_signer"), &caller);
 
         Ok(())
     }
@@ -14085,6 +14090,7 @@ impl VaultDAO {
 
         storage::set_time_weighted_config(&env, &config);
         storage::extend_instance_ttl(&env);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "time_weighted"), &admin);
 
         Ok(())
     }
@@ -17939,6 +17945,7 @@ impl VaultDAO {
             return Err(VaultError::InvalidAmount);
         }
         storage::set_snapshot_interval(&env, interval);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "snapshot_intvl"), &admin);
         Ok(())
     }
 
@@ -18147,6 +18154,7 @@ impl VaultDAO {
             return Err(VaultError::InvalidAmount);
         }
         storage::set_governance_threshold(&env, percentage);
+        events::emit_config_param_changed(&env, Symbol::new(&env, "gov_threshold"), &admin);
         Ok(())
     }
 

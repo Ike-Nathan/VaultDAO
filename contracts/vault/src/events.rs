@@ -2258,3 +2258,18 @@ pub fn emit_proposal_tags_changed(env: &Env, proposal_id: u64, caller: &Address,
         (caller.clone(), tag_count),
     );
 }
+
+// ============================================================================
+// Issue #1735: Governance / Voting Config Change Event
+// ============================================================================
+
+/// Emit when a governance-critical configuration parameter is changed.
+///
+/// Topics: `("config_param_changed", param)`
+/// Data:   `admin`
+pub fn emit_config_param_changed(env: &Env, param: Symbol, admin: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "config_param_changed"), param),
+        admin.clone(),
+    );
+}
