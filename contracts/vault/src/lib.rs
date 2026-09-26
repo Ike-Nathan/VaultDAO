@@ -368,10 +368,6 @@ mod test_spending_refund_buckets;
 // #[cfg(test)]
 // mod test_escrow_voting;
 // #[cfg(test)]
-// mod test_token_limits;
-// #[cfg(test)]
-// mod test_swap_multi_token;
-// #[cfg(test)]
 // mod test_token_allowlist;
 // #[cfg(test)]
 // mod test_proposal_amendment;
@@ -556,6 +552,12 @@ mod test_insurance_governance;
 mod test_insurance_premium;
 #[cfg(test)]
 mod test_token_insurance;
+#[cfg(test)]
+mod test_multi_token;
+#[cfg(test)]
+mod test_swap_multi_token;
+#[cfg(test)]
+mod test_token_limits;
 #[cfg(test)]
 pub mod mock_oracle {
     use crate::types::VaultPriceData;
