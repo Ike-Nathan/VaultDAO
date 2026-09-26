@@ -29,7 +29,7 @@ pub struct VaultOracleConfig {
     pub address: Address,
     /// Asset symbol for the base currency (e.g., USD)
     pub base_symbol: Symbol,
-    /// Maximum ledgers before price is considered stale
+    /// Maximum age in seconds before price is considered stale
     pub max_staleness: u32,
 }
 
@@ -2650,7 +2650,7 @@ pub struct GasPriceOracleConfig {
     /// Address of the gas-price oracle contract.
     /// The oracle must expose `lastprice(asset: Address) -> Option<VaultPriceData>`.
     pub address: Address,
-    /// Maximum number of ledgers since the oracle's recorded timestamp before
+    /// Maximum age in seconds since the oracle's recorded timestamp before
     /// the price is treated as stale and the local fallback is used.
     pub max_staleness: u32,
 }
