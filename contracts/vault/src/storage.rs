@@ -45,6 +45,8 @@ use crate::types_balance_snapshot::BalanceSnapshot;
 pub enum DataKey {
     /// Contract initialization flag
     Initialized,
+    /// Storage schema version (issue #1748) -> u32
+    SchemaVersion,
     /// Vault configuration -> Config
     Config,
     /// Role assignment for address -> Role
@@ -630,7 +632,36 @@ pub fn set_initialized(env: &Env) {
 // Config
 // ============================================================================
 
+/// Current storage schema version. Bump when stored types change and add a
+/// step to `VaultDAO::migrate`.
+pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+
+/// Stored schema version; deployments that predate versioning report 0.
+pub fn get_schema_version(env: &Env) -> u32 {
+    env.storage()
+        .instance()
+        .get(&DataKey::SchemaVersion)
+        .unwrap_or(0)
+}
+
+pub fn set_schema_version(env: &Env, version: u32) {
+    env.storage().instance().set(&DataKey::SchemaVersion, &version);
+}
+
 pub fn get_config(env: &Env) -> Result<Config, VaultError> {
+    let config: Config = env
+        .storage()
+        .instance()
+        .get(&DataKey::Config)
+        .ok_or(VaultError::NotInitialized)?;
+    if get_schema_version(env) != CURRENT_SCHEMA_VERSION {
+        return Err(VaultError::SchemaVersionMismatch);
+    }
+    Ok(config)
+}
+
+/// Config read that skips the schema version check (used only by `migrate`).
+pub fn get_config_unchecked(env: &Env) -> Result<Config, VaultError> {
     env.storage()
         .instance()
         .get(&DataKey::Config)

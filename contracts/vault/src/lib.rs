@@ -762,6 +762,7 @@ impl VaultDAO {
             storage::add_role_index_address(&env, &signer);
         }
         storage::set_initialized(&env);
+        storage::set_schema_version(&env, storage::CURRENT_SCHEMA_VERSION);
         storage::extend_instance_ttl(&env);
 
         // Create audit entry
@@ -16981,6 +16982,31 @@ impl VaultDAO {
         events::emit_initialized(&env, &executor, config.threshold);
 
         Ok(())
+    }
+
+    /// Migrate stored data after a contract upgrade (issue #1748).
+    ///
+    /// Admin-only. `from_version` must equal the stored schema version. Until
+    /// this succeeds, business logic that reads the config returns
+    /// `SchemaVersionMismatch`. Add one `if` step per version bump below.
+    pub fn migrate(env: Env, admin: Address, from_version: u32) -> Result<(), VaultError> {
+        admin.require_auth();
+        storage::get_config_unchecked(&env)?;
+        if storage::get_role(&env, &admin) != Role::Admin {
+            return Err(VaultError::Unauthorized);
+        }
+        let stored = storage::get_schema_version(&env);
+        if stored != from_version || from_version > storage::CURRENT_SCHEMA_VERSION {
+            return Err(VaultError::SchemaVersionMismatch);
+        }
+        // Version 0 -> 1: pre-versioning deployments; no data rewrite needed.
+        storage::set_schema_version(&env, storage::CURRENT_SCHEMA_VERSION);
+        Ok(())
+    }
+
+    /// Current stored storage schema version.
+    pub fn get_schema_version(env: Env) -> u32 {
+        storage::get_schema_version(&env)
     }
 
     // ========================================================================

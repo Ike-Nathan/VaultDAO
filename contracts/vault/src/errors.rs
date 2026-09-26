@@ -485,6 +485,9 @@ pub enum VaultError {
     // =========================================================
     /// Notification subscriber index has reached its hard cap
     NotificationIndexFull = 1139,
+    // Issue #1748: Storage schema versioning
+    /// Stored schema version does not match this contract build; call `migrate`
+    SchemaVersionMismatch = 1140,
 }
 
 // Compatibility markers for CI source checks:
