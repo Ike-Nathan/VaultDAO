@@ -4257,7 +4257,7 @@ impl VaultDAO {
 
         // Stream must be active
         if stream.status != StreamStatus::Active {
-            return Err(VaultError::ProposalNotApproved);
+            return Err(VaultError::StreamNotActive);
         }
 
         // Reject dust payments before rate check (prevents bypass via tiny-amount spam)
@@ -13679,7 +13679,7 @@ impl VaultDAO {
         // Check if user already has an active lock
         if let Some(existing_lock) = storage::get_token_lock(&env, &owner) {
             if existing_lock.is_active {
-                return Err(VaultError::AlreadyApproved); // Reusing error for "already locked"
+                return Err(VaultError::LockAlreadyActive);
             }
         }
 
@@ -17660,7 +17660,7 @@ impl VaultDAO {
         }
         let active = storage::get_active_vesting_count(&env);
         if active >= 100 {
-            return Err(VaultError::BatchTooLarge);
+            return Err(VaultError::VestingCapReached);
         }
         let reserved = storage::get_reserved_vesting(&env, &token_addr);
         if Self::available_balance(&env, &token_addr) < total {
@@ -17706,7 +17706,7 @@ impl VaultDAO {
     ) -> Result<i128, VaultError> {
         beneficiary.require_auth();
         let mut schedule =
-            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::ProposalNotFound)?;
+            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::VestingNotFound)?;
         if schedule.cancelled || schedule.beneficiary != beneficiary {
             return Err(VaultError::Unauthorized);
         }
@@ -17735,7 +17735,7 @@ impl VaultDAO {
             return Err(VaultError::Unauthorized);
         }
         let mut schedule =
-            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::ProposalNotFound)?;
+            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::VestingNotFound)?;
         if schedule.cancelled {
             return Ok(0);
         }

@@ -485,6 +485,19 @@ pub enum VaultError {
     // =========================================================
     /// Notification subscriber index has reached its hard cap
     NotificationIndexFull = 1139,
+
+    // =========================================================
+    // Issue #1739: Dedicated stream / vesting / lock errors
+    // (numbered 1160+ to leave headroom for concurrently added variants)
+    // =========================================================
+    /// Streaming payment exists but is not in the Active state
+    StreamNotActive = 1160,
+    /// No vesting schedule exists with the given ID
+    VestingNotFound = 1161,
+    /// Owner already has an active token lock
+    LockAlreadyActive = 1162,
+    /// Active vesting schedule cap has been reached
+    VestingCapReached = 1163,
 }
 
 // Compatibility markers for CI source checks:

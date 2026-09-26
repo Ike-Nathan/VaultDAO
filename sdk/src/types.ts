@@ -374,6 +374,12 @@ export enum VaultErrorCode {
   // 6xx — Token
   TransferFailed = 600,
   InsufficientBalance = 601,
+
+  // 11xx — Streams, vesting and locks (contract codes, Issue #1739)
+  StreamNotActive = 1160,
+  VestingNotFound = 1161,
+  LockAlreadyActive = 1162,
+  VestingCapReached = 1163,
 }
 
 /** Thrown when the contract returns a known error code. */
