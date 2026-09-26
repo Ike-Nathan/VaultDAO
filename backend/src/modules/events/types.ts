@@ -81,6 +81,9 @@ export enum EventType {
    *  Auditors: timing variance equal to the jitter_offset is expected behavior. */
   RECURRING_PAYMENT_EXECUTED = "RECURRING_PAYMENT_EXECUTED",
   RECURRING_PAYMENT_JITTERED = "RECURRING_PAYMENT_JITTERED",
+  RECURRING_PAUSED = "RECURRING_PAUSED",
+  RECURRING_RESUMED = "RECURRING_RESUMED",
+  RECURRING_STOPPED = "RECURRING_STOPPED",
 
   // ── Recovery ──────────────────────────────────────────────────────────────
   RECOVERY_PROPOSED = "RECOVERY_PROPOSED",
@@ -728,6 +731,9 @@ export const CONTRACT_EVENT_MAP: Record<string, EventType> = {
   subscription_expired: EventType.SUBSCRIPTION_EXPIRED,
   recurring_payment_executed: EventType.RECURRING_PAYMENT_EXECUTED,
   recurring_pay_jittered: EventType.RECURRING_PAYMENT_JITTERED,
+  recurring_paused: EventType.RECURRING_PAUSED,
+  recurring_resumed: EventType.RECURRING_RESUMED,
+  recurring_stopped: EventType.RECURRING_STOPPED,
 
   // Recovery
   recovery_proposed: EventType.RECOVERY_PROPOSED,

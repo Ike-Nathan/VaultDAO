@@ -2133,3 +2133,40 @@ pub fn emit_signers_replaced(env: &Env, actor: &Address, old_count: u32, new_cou
         (actor.clone(), old_count, new_count),
     );
 }
+
+// ============================================================================
+// Issue #1732: Recurring Payment Status Events
+// ============================================================================
+
+/// Emit when a recurring payment is paused.
+///
+/// Topics: `("recurring_paused", payment_id)`
+/// Data:   `(caller, paused_at_ledger)`
+pub fn emit_recurring_paused(env: &Env, payment_id: u64, caller: &Address, paused_at: u64) {
+    env.events().publish(
+        (Symbol::new(env, "recurring_paused"), payment_id),
+        (caller.clone(), paused_at),
+    );
+}
+
+/// Emit when a recurring payment is resumed.
+///
+/// Topics: `("recurring_resumed", payment_id)`
+/// Data:   `(caller, next_payment_ledger)`
+pub fn emit_recurring_resumed(env: &Env, payment_id: u64, caller: &Address, next_ledger: u64) {
+    env.events().publish(
+        (Symbol::new(env, "recurring_resumed"), payment_id),
+        (caller.clone(), next_ledger),
+    );
+}
+
+/// Emit when a recurring payment is stopped (or moved to Stopping).
+///
+/// Topics: `("recurring_stopped", payment_id)`
+/// Data:   `(caller, stopping)` where `stopping` is true if grace executions remain.
+pub fn emit_recurring_stopped(env: &Env, payment_id: u64, caller: &Address, stopping: bool) {
+    env.events().publish(
+        (Symbol::new(env, "recurring_stopped"), payment_id),
+        (caller.clone(), stopping),
+    );
+}

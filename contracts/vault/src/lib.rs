@@ -7090,6 +7090,13 @@ impl VaultDAO {
         storage::set_recurring_payment(&env, &payment);
         storage::extend_instance_ttl(&env);
 
+        events::emit_recurring_stopped(
+            &env,
+            payment_id,
+            &caller,
+            payment.status == crate::types::RecurringStatus::Stopping,
+        );
+
         Ok(())
     }
 
@@ -7125,6 +7132,7 @@ impl VaultDAO {
         payment.paused_at_ledger = env.ledger().sequence() as u64;
         storage::set_recurring_payment(&env, &payment);
         storage::extend_instance_ttl(&env);
+        events::emit_recurring_paused(&env, payment_id, &caller, payment.paused_at_ledger);
 
         Ok(())
     }
@@ -7169,6 +7177,7 @@ impl VaultDAO {
         payment.paused_at_ledger = 0;
         storage::set_recurring_payment(&env, &payment);
         storage::extend_instance_ttl(&env);
+        events::emit_recurring_resumed(&env, payment_id, &caller, payment.next_payment_ledger);
 
         Ok(())
     }

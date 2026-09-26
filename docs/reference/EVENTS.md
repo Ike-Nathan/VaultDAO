@@ -1739,3 +1739,11 @@ The backend exposes:
 - `GET /events/types`
 
 It returns registered event type mappings (`EventNormalizer.registeredTypes()`). Use it to verify topic strings and the corresponding `EventType` values in your deployment.
+
+## Recurring payment status events (Issue #1732)
+
+| Topic | Topics tuple | Data |
+| --- | --- | --- |
+| `recurring_paused` | `(symbol, payment_id: u64)` | `(caller: Address, paused_at_ledger: u64)` |
+| `recurring_resumed` | `(symbol, payment_id: u64)` | `(caller: Address, next_payment_ledger: u64)` |
+| `recurring_stopped` | `(symbol, payment_id: u64)` | `(caller: Address, stopping: bool)` |
