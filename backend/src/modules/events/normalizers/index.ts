@@ -8,6 +8,7 @@ import { RecurringNormalizer } from "./recurring.normalizer.js";
 import { InsuranceNormalizer } from "./insurance.normalizer.js";
 import { RecoveryNormalizer } from "./recovery.normalizer.js";
 import { SubscriptionNormalizer } from "./subscription.normalizer.js";
+import { VestingNormalizer } from "./vesting.normalizer.js";
 import { MiscNormalizer } from "./misc.normalizer.js";
 import { GenericEventNormalizer } from "./generic.normalizer.js";
 import { UnknownEventNormalizer } from "./unknown.normalizer.js";
@@ -164,6 +165,14 @@ export class EventNormalizer {
         return SubscriptionNormalizer.normalizeSubscriptionUpgraded(event);
       case EventType.SUBSCRIPTION_EXPIRED:
         return SubscriptionNormalizer.normalizeSubscriptionExpired(event);
+
+      // ── Vesting ─────────────────────────────────────────────────────────
+      case EventType.VESTING_CREATED:
+        return VestingNormalizer.normalizeVestingCreated(event);
+      case EventType.VESTING_CLAIMED:
+        return VestingNormalizer.normalizeVestingClaimed(event);
+      case EventType.VESTING_CANCELLED:
+        return VestingNormalizer.normalizeVestingCancelled(event);
 
       // ── Recovery ────────────────────────────────────────────────────────
       case EventType.RECOVERY_PROPOSED:

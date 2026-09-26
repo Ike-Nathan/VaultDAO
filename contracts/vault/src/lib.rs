@@ -6,12 +6,6 @@
 // `no_std` only for the real (wasm) build: `cargo test` needs `std` for the
 // `proptest` dev-dependency used by `test_spending_limit_invariants_proptest`.
 #![cfg_attr(not(test), no_std)]
-#![allow(dead_code)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::empty_line_after_outer_attr)]
-#![allow(clippy::unwrap_or_default)]
-#![allow(clippy::unnecessary_unwrap)]
-#![allow(clippy::let_unit_value)]
 
 // mod bridge; // Feature incomplete
 #[cfg(feature = "bridge")]
@@ -65,213 +59,8 @@ use types_balance_snapshot::BalanceSnapshot;
 #[contract]
 pub struct VaultDAO;
 
-/// Proposal expiration: ~7 days in ledgers (5 seconds per ledger) - DEPRECATED, use ExpirationConfig
-#[allow(dead_code)]
-const PROPOSAL_EXPIRY_LEDGERS: u64 = 120_960;
-
-/// Ledger interval in seconds (approximate)
-const LEDGER_INTERVAL_SECONDS: u64 = 5;
-
-/// One 24-hour cycle in ledgers (quiet-hours day offset, 5 s/ledger)
-const QUIET_HOURS_CYCLE: u64 = 1440;
-
-/// Maximum proposals that can be batch-executed in one call (gas limit)
-const MAX_BATCH_SIZE: u32 = 10;
-
-/// Maximum metadata entries stored per proposal
-const MAX_METADATA_ENTRIES: u32 = 16;
-
-/// Maximum length for a single metadata value
-const MAX_METADATA_VALUE_LEN: u32 = 256;
-
-/// Maximum number of tags per proposal
-const MAX_TAGS: u32 = 10;
-
-/// Maximum number of attachments per proposal
-const MAX_ATTACHMENTS: u32 = 10;
-
-/// Minimum admin rotation delay: 1440 ledgers ? 24 hours at 5 s/ledger.
-/// Enforced at both vault initialization and `set_admin_rotation_delay`.
-const MIN_ADMIN_ROTATION_DELAY: u64 = 1_440;
-
-/// Minimum length for an attachment CID (CIDv0 = 46 chars, CIDv1 base32 = 59+ chars)
-const MIN_ATTACHMENT_LEN: u32 = 46;
-
-/// Maximum length for an attachment CID
-const MAX_ATTACHMENT_LEN: u32 = 128;
-
-/// Reputation adjustments
-/// Minimum interval between recurring payments: 720 ledgers ? 1 hour at ~5 s/ledger.
-/// Prevents near-instant repeated draining of the vault.
-const MIN_RECURRING_INTERVAL: u64 = 720;
-
-const REP_EXEC_PROPOSER: u32 = 10;
-const REP_EXEC_APPROVER: u32 = 5;
-const REP_REJECTION_PENALTY: u32 = 20;
-const REP_APPROVAL_BONUS: u32 = 2;
-
-/// Compute which registered addresses have `NotificationPrefs` that match
-/// `event_type` and `amount`, taking quiet hours into account.
-///
-/// Called at emission time so indexers receive a ready-made push list inside
-/// the companion `notif_dispatch` event.
-fn compute_relevant_signers(env: &Env, event_type: &Symbol, amount: i128) -> Vec<Address> {
-    let day_offset = (env.ledger().sequence() as u64 % QUIET_HOURS_CYCLE) as u32;
-    // Use the dedicated prefs index (signers/role holders only, hard-capped).
-    let known = storage::get_notification_prefs_index(env);
-    let mut relevant = Vec::new(env);
-
-    for addr in known
-        .iter()
-        .take(storage::MAX_NOTIFICATION_SUBSCRIBERS as usize)
-    {
-        let prefs = match storage::get_notification_prefs(env, &addr) {
-            Some(p) => p,
-            None => continue,
-        };
-
-        if !prefs.subscribed_events.contains(event_type) {
-            continue;
-        }
-
-        if amount < prefs.min_amount_threshold {
-            continue;
-        }
-
-        // Quiet-hours check: exclude if the current day-offset falls within
-        // [quiet_hours_start, quiet_hours_end).  Wrapping ranges (start > end)
-        // are handled by splitting into two half-open intervals.
-        let in_quiet = if prefs.quiet_hours_start <= prefs.quiet_hours_end {
-            day_offset >= prefs.quiet_hours_start && day_offset < prefs.quiet_hours_end
-        } else {
-            day_offset >= prefs.quiet_hours_start || day_offset < prefs.quiet_hours_end
-        };
-        if in_quiet {
-            continue;
-        }
-
-        relevant.push_back(addr);
-    }
-
-    relevant
-}
-
-/// Price impact (bps) of a swap relative to the oracle-implied output (#1708).
-///
-/// Uses checked arithmetic so a non-positive oracle price or an oversized
-/// amount returns a typed error instead of trapping the contract.
-fn compute_swap_price_impact(
-    amount_in: i128,
-    price_in: i128,
-    price_out: i128,
-    amount_out: i128,
-) -> Result<u32, VaultError> {
-    if price_in <= 0 || price_out <= 0 {
-        return Err(VaultError::OracleError);
-    }
-    let expected_amount_out = amount_in
-        .checked_mul(price_in)
-        .ok_or(VaultError::ArithmeticOverflow)?
-        .checked_div(price_out)
-        .ok_or(VaultError::OracleError)?;
-    if expected_amount_out <= 0 {
-        return Ok(0);
-    }
-    let impact = expected_amount_out
-        .checked_sub(amount_out)
-        .and_then(|diff| diff.checked_mul(10_000))
-        .and_then(|scaled| scaled.checked_div(expected_amount_out))
-        .ok_or(VaultError::ArithmeticOverflow)?;
-    u32::try_from(impact.max(0)).map_err(|_| VaultError::ArithmeticOverflow)
-}
-
-fn calculate_expiration_ledger(config: &Config, priority: &Priority, current_ledger: u64) -> u64 {
-    let multiplier = match priority {
-        Priority::Low => 2,
-        Priority::Normal => 1,
-        Priority::High => 1,
-        Priority::Critical => 1,
-    };
-    let configured = config.default_voting_deadline.max(PROPOSAL_EXPIRY_LEDGERS);
-    current_ledger + configured.saturating_mul(multiplier)
-}
-
-/// Calculate the impact score for a proposal
-///
-/// Returns ImpactScore struct with:
-/// - treasury_impact_bps: (amount / treasury_balance) * 10000
-/// - recipient_risk_score: 0 (whitelisted) to 100 (unknown)  
-/// - complexity_score: based on conditions, dependencies, scheduling
-/// - total_score: weighted average (0-100)
-fn calculate_impact_score(
-    env: &Env,
-    amount: i128,
-    treasury_balance: i128,
-    recipient: &Address,
-    conditions_count: u32,
-    dependencies_count: u32,
-    is_scheduled: bool,
-    has_insurance: bool,
-    has_stake: bool,
-) -> ImpactScore {
-    // 1. Treasury Impact in basis points
-    let treasury_impact_bps = if treasury_balance > 0 {
-        let bps = (amount as u64)
-            .saturating_mul(10_000)
-            .saturating_div(treasury_balance as u64);
-        bps.min(10_000) as u32 // Cap at 10000 bps (100%)
-    } else {
-        10_000 // Assume max impact if treasury is empty/zero
-    };
-
-    // 2. Recipient Risk Score (0-100)
-    // Whitelisted recipients get 0, unknown get 100
-    let recipient_risk_score = if storage::is_recipient_whitelisted(env, recipient) {
-        0u32
-    } else {
-        100u32
-    };
-
-    // 3. Complexity Score (0-100)
-    // Based on: conditions (0-20), dependencies (0-30), scheduling (0-20), insurance/stake (0-30)
-    let mut complexity = 0u32;
-
-    // Condition complexity: 1 point per condition, max 20
-    complexity = complexity.saturating_add(conditions_count.min(20));
-
-    // Dependency complexity: 10 points per dependency, max 30
-    complexity = complexity.saturating_add(dependencies_count.saturating_mul(10).min(30));
-
-    // Scheduled execution adds 20 points
-    if is_scheduled {
-        complexity = complexity.saturating_add(20);
-    }
-
-    // Insurance/staking adds complexity
-    if has_insurance || has_stake {
-        complexity = complexity.saturating_add(30);
-    }
-
-    let complexity_score = complexity.min(100);
-
-    // 4. Total Impact Score using weighted average
-    // Formula: (treasury_impact_bps / 100) * 0.4 + recipient_risk * 0.3 + complexity * 0.3
-    // Normalized to 0-100 scale
-    let treasury_component = treasury_impact_bps
-        .saturating_mul(40)
-        .saturating_div(10_000);
-    let recipient_component = recipient_risk_score.saturating_mul(30).saturating_div(100);
-    let complexity_component = complexity_score.saturating_mul(30).saturating_div(100);
-
-    let total = (treasury_component + recipient_component + complexity_component).min(100);
-
-    ImpactScore {
-        treasury_impact_bps,
-        recipient_risk_score,
-        complexity_score,
-        total_score: total,
-    }
-}
+mod helpers;
+use helpers::*;
 
 // Broken upstream test modules commented out so Issue #1345 spending_refund
 // tests compile. Do not re-enable via a cargo feature -- clippy uses --all-features.
@@ -302,15 +91,11 @@ fn calculate_impact_score(
 // #[cfg(test)]
 // mod test_hooks;
 // #[cfg(test)]
-// mod test_circular_dependency;
-// #[cfg(test)]
 // mod test_cold_signature_replay;
 // #[cfg(test)]
 // mod test_merge;
 // #[cfg(test)]
 // mod test_notification_prefs;
-// #[cfg(test)]
-// mod test_threshold_reduction;
 // #[cfg(test)]
 // mod test_recurring;
 // #[cfg(test)]
@@ -334,11 +119,7 @@ fn calculate_impact_score(
 // #[cfg(test)]
 // mod test_reentrancy;
 // #[cfg(test)]
-// mod test_regressions;
-// #[cfg(test)]
 // mod test_retry;
-// #[cfg(test)]
-// mod test_staking;
 // #[cfg(test)]
 // mod test_stream_burst_config;
 // #[cfg(test)]
@@ -347,8 +128,6 @@ fn calculate_impact_score(
 // mod test_subscriptions;
 // #[cfg(test)]
 // mod test_subscription_downgrade_grace;
-// #[cfg(test)]
-// mod test_proposal_expiration;
 // #[cfg(test)]
 // mod test_tag_taxonomy;
 // #[cfg(test)]
@@ -370,23 +149,13 @@ mod test_spending_refund_buckets;
 // #[cfg(test)]
 // mod test_escrow_voting;
 // #[cfg(test)]
-// mod test_token_limits;
-// #[cfg(test)]
-// mod test_swap_multi_token;
-// #[cfg(test)]
-// mod test_token_insurance;
-// #[cfg(test)]
 // mod test_token_allowlist;
-// #[cfg(test)]
-// mod test_proposal_amendment;
 // #[cfg(test)]
 // mod test_overflow_checks;
 // #[cfg(test)]
 // mod test_delegation_depth;
 // #[cfg(test)]
 // mod test_stream_autocomplete;
-// #[cfg(test)]
-// mod test_proposal_management;
 
 // #[cfg(test)]
 // #[cfg(test)]
@@ -407,8 +176,6 @@ mod test_audit;
 mod test_batch_dependencies;
 #[cfg(test)]
 mod test_cache_invalidation;
-// #[cfg(test)]
-// mod test_circular_dependency;
 // #[cfg(test)]
 // mod test_cold_signature_replay;
 #[cfg(test)]
@@ -458,10 +225,6 @@ mod test_merge;
 #[cfg(test)]
 mod test_notification_prefs;
 // #[cfg(test)]
-// mod test_proposal_expiration;
-// #[cfg(test)]
-// mod test_proposal_management;
-// #[cfg(test)]
 // mod test_rbac_consistency;
 // #[cfg(test)]
 // mod test_recurring;
@@ -474,11 +237,7 @@ mod test_notification_prefs;
 // #[cfg(test)]
 // mod test_reentrancy;
 // #[cfg(test)]
-// mod test_regressions;
-// #[cfg(test)]
 // mod test_retry;
-// #[cfg(test)]
-// mod test_staking;
 #[cfg(test)]
 mod test_staking_slashing;
 // #[cfg(test)]
@@ -524,8 +283,6 @@ mod test_tags;
 mod test_threshold_min_init;
 #[cfg(test)]
 mod test_whitelist_proposal;
-// #[cfg(test)]
-// mod test_threshold_reduction;
 #[cfg(test)]
 mod test_max_concurrent_streams_per_recipient;
 #[cfg(test)]
@@ -554,6 +311,34 @@ mod test_notification_index_cap;
 mod test_earmarked_balances;
 mod test_voting_deadline;
 
+#[cfg(test)]
+mod test_staking;
+#[cfg(test)]
+mod test_insurance_governance;
+#[cfg(test)]
+mod test_insurance_premium;
+#[cfg(test)]
+mod test_token_insurance;
+#[cfg(test)]
+mod test_multi_token;
+#[cfg(test)]
+mod test_swap_multi_token;
+#[cfg(test)]
+mod test_token_limits;
+#[cfg(test)]
+mod test_proposal_expiration;
+#[cfg(test)]
+mod test_proposal_management;
+#[cfg(test)]
+mod test_proposal_amendment;
+#[cfg(test)]
+mod test_proposal_ttl_extension_on_read;
+#[cfg(test)]
+mod test_circular_dependency;
+#[cfg(test)]
+mod test_threshold_reduction;
+#[cfg(test)]
+mod test_regressions;
 #[cfg(test)]
 pub mod mock_oracle {
     use crate::types::VaultPriceData;
@@ -762,6 +547,7 @@ impl VaultDAO {
             storage::add_role_index_address(&env, &signer);
         }
         storage::set_initialized(&env);
+        storage::set_schema_version(&env, storage::CURRENT_SCHEMA_VERSION);
         storage::extend_instance_ttl(&env);
 
         // Create audit entry
@@ -4258,7 +4044,7 @@ impl VaultDAO {
 
         // Stream must be active
         if stream.status != StreamStatus::Active {
-            return Err(VaultError::ProposalNotApproved);
+            return Err(VaultError::StreamNotActive);
         }
 
         // Reject dust payments before rate check (prevents bypass via tiny-amount spam)
@@ -9542,7 +9328,7 @@ impl VaultDAO {
     ///   - no oracle is configured,
     ///   - the oracle cross-contract call panics,
     ///   - the oracle returns `None`,
-    ///   - the returned price is stale (older than `max_staleness` ledgers),
+    ///   - the returned price is stale (older than `max_staleness` seconds),
     ///   - the returned price is ? 0.
     ///
     /// The function **never** returns an error for oracle failures ? fallback is
@@ -9710,7 +9496,8 @@ impl VaultDAO {
         };
 
         // Staleness check.
-        let current_ledger = env.ledger().sequence() as u64;
+        // max_staleness is in seconds; compare against the ledger Unix timestamp.
+        let current_ledger = env.ledger().timestamp();
         if current_ledger.saturating_sub(price_data.timestamp) > oracle_cfg.max_staleness as u64 {
             events::emit_oracle_price_stale(
                 env,
@@ -9789,6 +9576,8 @@ impl VaultDAO {
         storage::increment_var_template_count(&env);
         storage::extend_instance_ttl(&env);
 
+        events::emit_var_template_created(&env, template_id, &name, &caller);
+
         Ok(template_id)
     }
 
@@ -9830,6 +9619,14 @@ impl VaultDAO {
         storage::set_var_template(&env, &template);
         storage::extend_instance_ttl(&env);
 
+        events::emit_var_template_updated(
+            &env,
+            template_id,
+            &template.name,
+            template.version,
+            &caller,
+        );
+
         Ok(())
     }
 
@@ -9858,6 +9655,8 @@ impl VaultDAO {
         template.updated_at = env.ledger().sequence() as u64;
         storage::set_var_template(&env, &template);
         storage::extend_instance_ttl(&env);
+
+        events::emit_var_template_deactivated(&env, template_id, &template.name, &caller);
 
         Ok(())
     }
@@ -11333,11 +11132,10 @@ impl VaultDAO {
 
         match price_data {
             Some(data) => {
-                // Compare ledger sequences: max_staleness is in ledgers, data.timestamp is the
-                // ledger sequence at which the price was recorded.
-                let current_ledger = env.ledger().sequence() as u64;
-                if current_ledger.saturating_sub(data.timestamp) > oracle_cfg.max_staleness as u64 {
-                    events::emit_oracle_price_stale(env, &asset, data.timestamp, current_ledger);
+                // max_staleness is in seconds; data.timestamp is a Unix timestamp in seconds.
+                let now = env.ledger().timestamp();
+                if now.saturating_sub(data.timestamp) > oracle_cfg.max_staleness as u64 {
+                    events::emit_oracle_price_stale(env, &asset, data.timestamp, now);
                     return Err(VaultError::OraclePriceStale);
                 }
                 if data.price <= 0 {
@@ -13344,6 +13142,8 @@ impl VaultDAO {
             duration_ledgers,
         );
 
+        storage::create_audit_entry(&env, AuditAction::EscrowCreated, &funder, escrow_id);
+
         Ok(escrow_id)
     }
 
@@ -13489,6 +13289,8 @@ impl VaultDAO {
         storage::set_escrow(&env, &escrow);
 
         events::emit_escrow_released(&env, escrow_id, &recipient, amount_to_release, is_expired);
+
+        storage::create_audit_entry(&env, AuditAction::EscrowReleased, &caller, escrow_id);
 
         Ok(amount_to_release)
     }
@@ -13683,7 +13485,7 @@ impl VaultDAO {
         // Check if user already has an active lock
         if let Some(existing_lock) = storage::get_token_lock(&env, &owner) {
             if existing_lock.is_active {
-                return Err(VaultError::AlreadyApproved); // Reusing error for "already locked"
+                return Err(VaultError::LockAlreadyActive);
             }
         }
 
@@ -13710,6 +13512,8 @@ impl VaultDAO {
         storage::extend_instance_ttl(&env);
 
         events::emit_tokens_locked(&env, &owner, amount, duration, power_multiplier_bps);
+
+        storage::create_audit_entry(&env, AuditAction::TokensLocked, &owner, 0);
 
         Ok(())
     }
@@ -14013,6 +13817,8 @@ impl VaultDAO {
 
         events::emit_early_unlock(&env, &owner, return_amount, penalty_amount);
 
+        storage::create_audit_entry(&env, AuditAction::TokensUnlockedEarly, &owner, 0);
+
         Ok(return_amount)
     }
 
@@ -14056,6 +13862,8 @@ impl VaultDAO {
         storage::extend_instance_ttl(&env);
 
         events::emit_tokens_unlocked(&env, &owner, amount);
+
+        storage::create_audit_entry(&env, AuditAction::TokensUnlocked, &owner, 0);
 
         Ok(amount)
     }
@@ -15126,6 +14934,8 @@ impl VaultDAO {
             milestone_count,
         );
 
+        storage::create_audit_entry(&env, AuditAction::FundingRoundCreated, &proposer, round_id);
+
         Ok(round_id)
     }
 
@@ -15156,6 +14966,8 @@ impl VaultDAO {
 
         storage::set_funding_round(&env, &round);
         events::emit_funding_round_approved(&env, round_id, &approver);
+
+        storage::create_audit_entry(&env, AuditAction::FundingRoundApproved, &approver, round_id);
 
         Ok(())
     }
@@ -15346,6 +15158,8 @@ impl VaultDAO {
             percentage_bps,
         );
 
+        storage::create_audit_entry(&env, AuditAction::FundingRoundReleased, &releaser, round_id);
+
         Ok(amount)
     }
 
@@ -15381,6 +15195,8 @@ impl VaultDAO {
 
         storage::set_funding_round(&env, &round);
         events::emit_funding_round_cancelled(&env, round_id, &canceller);
+
+        storage::create_audit_entry(&env, AuditAction::FundingRoundCancelled, &canceller, round_id);
 
         Ok(())
     }
@@ -16174,6 +15990,8 @@ impl VaultDAO {
             amount_per_period,
         );
 
+        storage::create_audit_entry(&env, AuditAction::SubscriptionCreated, &subscriber, id);
+
         Ok(id)
     }
 
@@ -16275,6 +16093,8 @@ impl VaultDAO {
         storage::extend_instance_ttl(&env);
 
         events::emit_subscription_cancelled(&env, subscription_id, &caller);
+
+        storage::create_audit_entry(&env, AuditAction::SubscriptionCancelled, &caller, subscription_id);
 
         Ok(())
     }
@@ -17004,6 +16824,31 @@ impl VaultDAO {
         Ok(())
     }
 
+    /// Migrate stored data after a contract upgrade (issue #1748).
+    ///
+    /// Admin-only. `from_version` must equal the stored schema version. Until
+    /// this succeeds, business logic that reads the config returns
+    /// `SchemaVersionMismatch`. Add one `if` step per version bump below.
+    pub fn migrate(env: Env, admin: Address, from_version: u32) -> Result<(), VaultError> {
+        admin.require_auth();
+        storage::get_config_unchecked(&env)?;
+        if storage::get_role(&env, &admin) != Role::Admin {
+            return Err(VaultError::Unauthorized);
+        }
+        let stored = storage::get_schema_version(&env);
+        if stored != from_version || from_version > storage::CURRENT_SCHEMA_VERSION {
+            return Err(VaultError::SchemaVersionMismatch);
+        }
+        // Version 0 -> 1: pre-versioning deployments; no data rewrite needed.
+        storage::set_schema_version(&env, storage::CURRENT_SCHEMA_VERSION);
+        Ok(())
+    }
+
+    /// Current stored storage schema version.
+    pub fn get_schema_version(env: Env) -> u32 {
+        storage::get_schema_version(&env)
+    }
+
     // ========================================================================
     // Proposal Cloning Functions
     // ========================================================================
@@ -17657,7 +17502,7 @@ impl VaultDAO {
         }
         let active = storage::get_active_vesting_count(&env);
         if active >= 100 {
-            return Err(VaultError::BatchTooLarge);
+            return Err(VaultError::VestingCapReached);
         }
         let reserved = storage::get_reserved_vesting(&env, &token_addr);
         if Self::available_balance(&env, &token_addr) < total {
@@ -17679,9 +17524,15 @@ impl VaultDAO {
         storage::set_vesting_schedule(&env, &schedule);
         storage::set_active_vesting_count(&env, active + 1);
         storage::set_reserved_vesting(&env, &token_addr, reserved + total);
-        env.events().publish(
-            (Symbol::new(&env, "vesting_created"), id),
-            (beneficiary, token_addr, total, cliff_ledger, end_ledger),
+        storage::create_audit_entry(&env, AuditAction::VestingCreated, &admin, id);
+        events::emit_vesting_created(
+            &env,
+            id,
+            &beneficiary,
+            &token_addr,
+            total,
+            cliff_ledger,
+            end_ledger,
         );
         Ok(id)
     }
@@ -17697,7 +17548,7 @@ impl VaultDAO {
     ) -> Result<i128, VaultError> {
         beneficiary.require_auth();
         let mut schedule =
-            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::ProposalNotFound)?;
+            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::VestingNotFound)?;
         if schedule.cancelled || schedule.beneficiary != beneficiary {
             return Err(VaultError::Unauthorized);
         }
@@ -17715,10 +17566,8 @@ impl VaultDAO {
             let active = storage::get_active_vesting_count(&env);
             storage::set_active_vesting_count(&env, active.saturating_sub(1));
         }
-        env.events().publish(
-            (Symbol::new(&env, "vesting_claimed"), schedule_id),
-            (beneficiary, claimable, schedule.claimed),
-        );
+        storage::create_audit_entry(&env, AuditAction::VestingClaimed, &beneficiary, schedule_id);
+        events::emit_vesting_claimed(&env, schedule_id, &beneficiary, claimable, schedule.claimed);
         Ok(claimable)
     }
 
@@ -17728,7 +17577,7 @@ impl VaultDAO {
             return Err(VaultError::Unauthorized);
         }
         let mut schedule =
-            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::ProposalNotFound)?;
+            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::VestingNotFound)?;
         if schedule.cancelled {
             return Ok(0);
         }
@@ -17759,10 +17608,8 @@ impl VaultDAO {
         );
         let active = storage::get_active_vesting_count(&env);
         storage::set_active_vesting_count(&env, active.saturating_sub(1));
-        env.events().publish(
-            (Symbol::new(&env, "vesting_cancelled"), schedule_id),
-            (admin, vested_unclaimed, unvested),
-        );
+        storage::create_audit_entry(&env, AuditAction::VestingCancelled, &admin, schedule_id);
+        events::emit_vesting_cancelled(&env, schedule_id, &admin, vested_unclaimed, unvested);
         Ok(unvested)
     }
 

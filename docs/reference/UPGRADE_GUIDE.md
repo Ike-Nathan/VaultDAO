@@ -443,6 +443,15 @@ Use this checklist before every production upgrade.
 - [ ] `execute_upgrade` has been called and confirmed.
 - [ ] `get_proposal(proposal_id).status == Executed`.
 
+### Schema migration (issue #1748)
+
+The contract stores `DataKey::SchemaVersion` (`storage::CURRENT_SCHEMA_VERSION`). Deployments that predate versioning report version 0. After `execute_upgrade`, any call that reads the config fails with `SchemaVersionMismatch` until an admin runs `migrate(admin, from_version)` with `from_version` equal to `get_schema_version()`.
+
+- [ ] Note `get_schema_version()` before the upgrade.
+- [ ] After upgrade, call `migrate(admin, <old_version>)`.
+- [ ] Confirm `get_schema_version()` equals the new build's version.
+- [ ] When changing `Config`, `Proposal`, or `Escrow` types, bump `CURRENT_SCHEMA_VERSION` and add a migration step in `migrate`.
+
 ### Post-upgrade validation
 
 - [ ] `get_config()` returns expected, unchanged settings.
