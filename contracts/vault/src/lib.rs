@@ -362,6 +362,8 @@ fn calculate_impact_score(
 #[cfg(test)]
 mod test_spending_limit_invariants_proptest;
 #[cfg(test)]
+mod test_stream_vesting_invariants_proptest;
+#[cfg(test)]
 mod test_spending_refund_buckets;
 // #[cfg(test)]
 // mod test_fan_out_streams;
