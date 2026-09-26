@@ -6,12 +6,6 @@
 // `no_std` only for the real (wasm) build: `cargo test` needs `std` for the
 // `proptest` dev-dependency used by `test_spending_limit_invariants_proptest`.
 #![cfg_attr(not(test), no_std)]
-#![allow(dead_code)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::empty_line_after_outer_attr)]
-#![allow(clippy::unwrap_or_default)]
-#![allow(clippy::unnecessary_unwrap)]
-#![allow(clippy::let_unit_value)]
 
 // mod bridge; // Feature incomplete
 #[cfg(feature = "bridge")]
