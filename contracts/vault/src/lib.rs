@@ -302,15 +302,11 @@ fn calculate_impact_score(
 // #[cfg(test)]
 // mod test_hooks;
 // #[cfg(test)]
-// mod test_circular_dependency;
-// #[cfg(test)]
 // mod test_cold_signature_replay;
 // #[cfg(test)]
 // mod test_merge;
 // #[cfg(test)]
 // mod test_notification_prefs;
-// #[cfg(test)]
-// mod test_threshold_reduction;
 // #[cfg(test)]
 // mod test_recurring;
 // #[cfg(test)]
@@ -334,11 +330,7 @@ fn calculate_impact_score(
 // #[cfg(test)]
 // mod test_reentrancy;
 // #[cfg(test)]
-// mod test_regressions;
-// #[cfg(test)]
 // mod test_retry;
-// #[cfg(test)]
-// mod test_staking;
 // #[cfg(test)]
 // mod test_stream_burst_config;
 // #[cfg(test)]
@@ -347,8 +339,6 @@ fn calculate_impact_score(
 // mod test_subscriptions;
 // #[cfg(test)]
 // mod test_subscription_downgrade_grace;
-// #[cfg(test)]
-// mod test_proposal_expiration;
 // #[cfg(test)]
 // mod test_tag_taxonomy;
 // #[cfg(test)]
@@ -370,23 +360,13 @@ mod test_spending_refund_buckets;
 // #[cfg(test)]
 // mod test_escrow_voting;
 // #[cfg(test)]
-// mod test_token_limits;
-// #[cfg(test)]
-// mod test_swap_multi_token;
-// #[cfg(test)]
-// mod test_token_insurance;
-// #[cfg(test)]
 // mod test_token_allowlist;
-// #[cfg(test)]
-// mod test_proposal_amendment;
 // #[cfg(test)]
 // mod test_overflow_checks;
 // #[cfg(test)]
 // mod test_delegation_depth;
 // #[cfg(test)]
 // mod test_stream_autocomplete;
-// #[cfg(test)]
-// mod test_proposal_management;
 
 // #[cfg(test)]
 // #[cfg(test)]
@@ -407,8 +387,6 @@ mod test_audit;
 mod test_batch_dependencies;
 #[cfg(test)]
 mod test_cache_invalidation;
-// #[cfg(test)]
-// mod test_circular_dependency;
 // #[cfg(test)]
 // mod test_cold_signature_replay;
 #[cfg(test)]
@@ -458,10 +436,6 @@ mod test_merge;
 #[cfg(test)]
 mod test_notification_prefs;
 // #[cfg(test)]
-// mod test_proposal_expiration;
-// #[cfg(test)]
-// mod test_proposal_management;
-// #[cfg(test)]
 // mod test_rbac_consistency;
 // #[cfg(test)]
 // mod test_recurring;
@@ -474,11 +448,7 @@ mod test_notification_prefs;
 // #[cfg(test)]
 // mod test_reentrancy;
 // #[cfg(test)]
-// mod test_regressions;
-// #[cfg(test)]
 // mod test_retry;
-// #[cfg(test)]
-// mod test_staking;
 #[cfg(test)]
 mod test_staking_slashing;
 // #[cfg(test)]
@@ -524,8 +494,6 @@ mod test_tags;
 mod test_threshold_min_init;
 #[cfg(test)]
 mod test_whitelist_proposal;
-// #[cfg(test)]
-// mod test_threshold_reduction;
 #[cfg(test)]
 mod test_max_concurrent_streams_per_recipient;
 #[cfg(test)]
@@ -554,6 +522,34 @@ mod test_notification_index_cap;
 mod test_earmarked_balances;
 mod test_voting_deadline;
 
+#[cfg(test)]
+mod test_staking;
+#[cfg(test)]
+mod test_insurance_governance;
+#[cfg(test)]
+mod test_insurance_premium;
+#[cfg(test)]
+mod test_token_insurance;
+#[cfg(test)]
+mod test_multi_token;
+#[cfg(test)]
+mod test_swap_multi_token;
+#[cfg(test)]
+mod test_token_limits;
+#[cfg(test)]
+mod test_proposal_expiration;
+#[cfg(test)]
+mod test_proposal_management;
+#[cfg(test)]
+mod test_proposal_amendment;
+#[cfg(test)]
+mod test_proposal_ttl_extension_on_read;
+#[cfg(test)]
+mod test_circular_dependency;
+#[cfg(test)]
+mod test_threshold_reduction;
+#[cfg(test)]
+mod test_regressions;
 #[cfg(test)]
 pub mod mock_oracle {
     use crate::types::VaultPriceData;
@@ -9523,7 +9519,7 @@ impl VaultDAO {
     ///   - no oracle is configured,
     ///   - the oracle cross-contract call panics,
     ///   - the oracle returns `None`,
-    ///   - the returned price is stale (older than `max_staleness` ledgers),
+    ///   - the returned price is stale (older than `max_staleness` seconds),
     ///   - the returned price is ? 0.
     ///
     /// The function **never** returns an error for oracle failures ? fallback is
@@ -9691,7 +9687,8 @@ impl VaultDAO {
         };
 
         // Staleness check.
-        let current_ledger = env.ledger().sequence() as u64;
+        // max_staleness is in seconds; compare against the ledger Unix timestamp.
+        let current_ledger = env.ledger().timestamp();
         if current_ledger.saturating_sub(price_data.timestamp) > oracle_cfg.max_staleness as u64 {
             events::emit_oracle_price_stale(
                 env,
@@ -11313,11 +11310,10 @@ impl VaultDAO {
 
         match price_data {
             Some(data) => {
-                // Compare ledger sequences: max_staleness is in ledgers, data.timestamp is the
-                // ledger sequence at which the price was recorded.
-                let current_ledger = env.ledger().sequence() as u64;
-                if current_ledger.saturating_sub(data.timestamp) > oracle_cfg.max_staleness as u64 {
-                    events::emit_oracle_price_stale(env, &asset, data.timestamp, current_ledger);
+                // max_staleness is in seconds; data.timestamp is a Unix timestamp in seconds.
+                let now = env.ledger().timestamp();
+                if now.saturating_sub(data.timestamp) > oracle_cfg.max_staleness as u64 {
+                    events::emit_oracle_price_stale(env, &asset, data.timestamp, now);
                     return Err(VaultError::OraclePriceStale);
                 }
                 if data.price <= 0 {
