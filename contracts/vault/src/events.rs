@@ -2133,3 +2133,46 @@ pub fn emit_signers_replaced(env: &Env, actor: &Address, old_count: u32, new_cou
         (actor.clone(), old_count, new_count),
     );
 }
+
+// ============================================================================
+// Issue #1736: Variable Template CRUD Events
+// ============================================================================
+
+/// Emit when a variable-substitution template is created.
+///
+/// Topics: `("var_template_created", template_id)`
+/// Data:   `(name, creator)`
+pub fn emit_var_template_created(env: &Env, template_id: u64, name: &Symbol, creator: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "var_template_created"), template_id),
+        (name.clone(), creator.clone()),
+    );
+}
+
+/// Emit when a variable-substitution template is updated.
+///
+/// Topics: `("var_template_updated", template_id)`
+/// Data:   `(name, version, updater)`
+pub fn emit_var_template_updated(
+    env: &Env,
+    template_id: u64,
+    name: &Symbol,
+    version: u32,
+    updater: &Address,
+) {
+    env.events().publish(
+        (Symbol::new(env, "var_template_updated"), template_id),
+        (name.clone(), version, updater.clone()),
+    );
+}
+
+/// Emit when a variable-substitution template is deactivated.
+///
+/// Topics: `("var_template_deactivated", template_id)`
+/// Data:   `(name, admin)`
+pub fn emit_var_template_deactivated(env: &Env, template_id: u64, name: &Symbol, admin: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "var_template_deactivated"), template_id),
+        (name.clone(), admin.clone()),
+    );
+}

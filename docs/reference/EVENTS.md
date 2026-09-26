@@ -1546,6 +1546,23 @@ Mapped via misc normalizer.
 
 > Reminder: for a strict field-by-field guarantee, always validate against runtime payloads from your deployment, because some event types share normalizer paths and/or rely on generic normalization.
 
+### Variable templates (Issue #1736)
+
+#### `var_template_created`
+
+- **Contract topic**: `var_template_created` (second topic: `template_id: u64`)
+- **Published data**: `(name: Symbol, creator: Address)`
+
+#### `var_template_updated`
+
+- **Contract topic**: `var_template_updated` (second topic: `template_id: u64`)
+- **Published data**: `(name: Symbol, version: u32, updater: Address)`
+
+#### `var_template_deactivated`
+
+- **Contract topic**: `var_template_deactivated` (second topic: `template_id: u64`)
+- **Published data**: `(name: Symbol, admin: Address)`
+
 ## WebSocket realtime subscription guide
 
 WebSocket realtime streaming is implemented in `backend/src/modules/realtime/realtime-server.ts`.

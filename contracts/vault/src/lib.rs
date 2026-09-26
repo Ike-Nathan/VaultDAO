@@ -9770,6 +9770,8 @@ impl VaultDAO {
         storage::increment_var_template_count(&env);
         storage::extend_instance_ttl(&env);
 
+        events::emit_var_template_created(&env, template_id, &name, &caller);
+
         Ok(template_id)
     }
 
@@ -9811,6 +9813,14 @@ impl VaultDAO {
         storage::set_var_template(&env, &template);
         storage::extend_instance_ttl(&env);
 
+        events::emit_var_template_updated(
+            &env,
+            template_id,
+            &template.name,
+            template.version,
+            &caller,
+        );
+
         Ok(())
     }
 
@@ -9839,6 +9849,8 @@ impl VaultDAO {
         template.updated_at = env.ledger().sequence() as u64;
         storage::set_var_template(&env, &template);
         storage::extend_instance_ttl(&env);
+
+        events::emit_var_template_deactivated(&env, template_id, &template.name, &caller);
 
         Ok(())
     }
