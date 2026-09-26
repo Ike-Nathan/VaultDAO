@@ -2215,3 +2215,46 @@ pub fn emit_capability_revoked(
         (admin.clone(), holder.clone()),
     );
 }
+
+// ============================================================================
+// Issue #1734: Tag Taxonomy Events
+// ============================================================================
+
+/// Emit when a hierarchical tag is created.
+///
+/// Topics: `("tag_created", tag_id)`
+/// Data:   `(caller, name, parent_id)`
+pub fn emit_tag_created(
+    env: &Env,
+    tag_id: u64,
+    caller: &Address,
+    name: &Symbol,
+    parent_id: Option<u64>,
+) {
+    env.events().publish(
+        (Symbol::new(env, "tag_created"), tag_id),
+        (caller.clone(), name.clone(), parent_id),
+    );
+}
+
+/// Emit when a hierarchical tag is deleted.
+///
+/// Topics: `("tag_deleted", tag_id)`
+/// Data:   `caller`
+pub fn emit_tag_deleted(env: &Env, tag_id: u64, caller: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "tag_deleted"), tag_id),
+        caller.clone(),
+    );
+}
+
+/// Emit when the tags on a proposal change (add, remove, bulk add, assign).
+///
+/// Topics: `("proposal_tags_changed", proposal_id)`
+/// Data:   `(caller, tag_count)` where `tag_count` is the resulting tag count.
+pub fn emit_proposal_tags_changed(env: &Env, proposal_id: u64, caller: &Address, tag_count: u32) {
+    env.events().publish(
+        (Symbol::new(env, "proposal_tags_changed"), proposal_id),
+        (caller.clone(), tag_count),
+    );
+}

@@ -9163,6 +9163,7 @@ impl VaultDAO {
         storage::set_proposal(&env, &proposal);
         storage::tag_index_add(&env, &tag, proposal_id);
         storage::extend_instance_ttl(&env);
+        events::emit_proposal_tags_changed(&env, proposal_id, &caller, proposal.tags.len());
 
         Ok(())
     }
@@ -9201,6 +9202,7 @@ impl VaultDAO {
         storage::set_proposal(&env, &proposal);
         storage::tag_index_remove(&env, &tag, proposal_id);
         storage::extend_instance_ttl(&env);
+        events::emit_proposal_tags_changed(&env, proposal_id, &caller, proposal.tags.len());
 
         Ok(())
     }
@@ -9276,6 +9278,7 @@ impl VaultDAO {
 
         storage::set_proposal(&env, &proposal);
         storage::extend_instance_ttl(&env);
+        events::emit_proposal_tags_changed(&env, proposal_id, &caller, proposal.tags.len());
 
         Ok(())
     }
@@ -9334,6 +9337,7 @@ impl VaultDAO {
         }
         storage::increment_htag_count(&env);
         storage::extend_instance_ttl(&env);
+        events::emit_tag_created(&env, tag_id, &caller, &name, parent_id);
 
         Ok(tag_id)
     }
@@ -9380,6 +9384,7 @@ impl VaultDAO {
 
         storage::set_proposal_htag_ids(&env, proposal_id, &current_ids);
         storage::extend_instance_ttl(&env);
+        events::emit_proposal_tags_changed(&env, proposal_id, &caller, current_ids.len());
 
         Ok(())
     }
@@ -9483,6 +9488,7 @@ impl VaultDAO {
             .remove(&storage::DataKey::HTag(tag_id));
         storage::decrement_htag_count(&env);
         storage::extend_instance_ttl(&env);
+        events::emit_tag_deleted(&env, tag_id, &caller);
 
         Ok(())
     }

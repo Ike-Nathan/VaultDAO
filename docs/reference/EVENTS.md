@@ -1754,3 +1754,13 @@ It returns registered event type mappings (`EventNormalizer.registeredTypes()`).
 | --- | --- | --- |
 | `capability_granted` | `(symbol, token_id: BytesN<32>)` | `(admin, holder, capability_count: u32, expires_at: u32, max_uses: u32)` |
 | `capability_revoked` | `(symbol, token_id: BytesN<32>)` | `(admin, holder)` |
+
+## Tag taxonomy events (Issue #1734)
+
+| Topic | Topics tuple | Data |
+| --- | --- | --- |
+| `tag_created` | `(symbol, tag_id: u64)` | `(caller, name: Symbol, parent_id: Option<u64>)` |
+| `tag_deleted` | `(symbol, tag_id: u64)` | `caller` |
+| `proposal_tags_changed` | `(symbol, proposal_id: u64)` | `(caller, tag_count: u32)` |
+
+`proposal_tags_changed` is emitted by `add_proposal_tag`, `remove_proposal_tag`, `bulk_add_tags` and `assign_tags` (only when something changed for add/bulk).
