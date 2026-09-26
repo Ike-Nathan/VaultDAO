@@ -76,6 +76,9 @@ export enum EventType {
   SUBSCRIPTION_CANCELLED = "SUBSCRIPTION_CANCELLED",
   SUBSCRIPTION_UPGRADED = "SUBSCRIPTION_UPGRADED",
   SUBSCRIPTION_EXPIRED = "SUBSCRIPTION_EXPIRED",
+  VESTING_CREATED = "VESTING_CREATED",
+  VESTING_CLAIMED = "VESTING_CLAIMED",
+  VESTING_CANCELLED = "VESTING_CANCELLED",
   /** Emitted when jitter shifts a recurring payment's next execution ledger.
    *  Present only when jitter_window > 0 and the payment is past its first cycle.
    *  Auditors: timing variance equal to the jitter_offset is expected behavior. */
@@ -448,6 +451,31 @@ export interface SubscriptionExpiredData {
   readonly subscriptionId: string;
 }
 
+// ── Vesting data interfaces ──────────────────────────────────────────────────
+
+export interface VestingCreatedData {
+  readonly scheduleId: string;
+  readonly beneficiary: string;
+  readonly token: string;
+  readonly total: string;
+  readonly cliffLedger: string;
+  readonly endLedger: string;
+}
+
+export interface VestingClaimedData {
+  readonly scheduleId: string;
+  readonly beneficiary: string;
+  readonly claimed: string;
+  readonly totalClaimed: string;
+}
+
+export interface VestingCancelledData {
+  readonly scheduleId: string;
+  readonly admin: string;
+  readonly vestedUnclaimedPaid: string;
+  readonly unvestedReturned: string;
+}
+
 // ── Recurring payment data interfaces ────────────────────────────────────────
 
 export interface RecurringPaymentExecutedData {
@@ -726,6 +754,9 @@ export const CONTRACT_EVENT_MAP: Record<string, EventType> = {
   subscription_cancelled: EventType.SUBSCRIPTION_CANCELLED,
   subscription_upgraded: EventType.SUBSCRIPTION_UPGRADED,
   subscription_expired: EventType.SUBSCRIPTION_EXPIRED,
+  vesting_created: EventType.VESTING_CREATED,
+  vesting_claimed: EventType.VESTING_CLAIMED,
+  vesting_cancelled: EventType.VESTING_CANCELLED,
   recurring_payment_executed: EventType.RECURRING_PAYMENT_EXECUTED,
   recurring_pay_jittered: EventType.RECURRING_PAYMENT_JITTERED,
 

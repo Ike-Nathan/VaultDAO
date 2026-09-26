@@ -17660,9 +17660,14 @@ impl VaultDAO {
         storage::set_vesting_schedule(&env, &schedule);
         storage::set_active_vesting_count(&env, active + 1);
         storage::set_reserved_vesting(&env, &token_addr, reserved + total);
-        env.events().publish(
-            (Symbol::new(&env, "vesting_created"), id),
-            (beneficiary, token_addr, total, cliff_ledger, end_ledger),
+        events::emit_vesting_created(
+            &env,
+            id,
+            &beneficiary,
+            &token_addr,
+            total,
+            cliff_ledger,
+            end_ledger,
         );
         Ok(id)
     }
@@ -17696,10 +17701,7 @@ impl VaultDAO {
             let active = storage::get_active_vesting_count(&env);
             storage::set_active_vesting_count(&env, active.saturating_sub(1));
         }
-        env.events().publish(
-            (Symbol::new(&env, "vesting_claimed"), schedule_id),
-            (beneficiary, claimable, schedule.claimed),
-        );
+        events::emit_vesting_claimed(&env, schedule_id, &beneficiary, claimable, schedule.claimed);
         Ok(claimable)
     }
 
@@ -17740,10 +17742,7 @@ impl VaultDAO {
         );
         let active = storage::get_active_vesting_count(&env);
         storage::set_active_vesting_count(&env, active.saturating_sub(1));
-        env.events().publish(
-            (Symbol::new(&env, "vesting_cancelled"), schedule_id),
-            (admin, vested_unclaimed, unvested),
-        );
+        events::emit_vesting_cancelled(&env, schedule_id, &admin, vested_unclaimed, unvested);
         Ok(unvested)
     }
 

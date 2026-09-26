@@ -1563,6 +1563,23 @@ Mapped via misc normalizer.
 - **Contract topic**: `var_template_deactivated` (second topic: `template_id: u64`)
 - **Published data**: `(name: Symbol, admin: Address)`
 
+### Vesting (Issue #1737)
+
+#### `vesting_created`
+
+- **Contract topic**: `vesting_created` (second topic: `schedule_id: u64`)
+- **Published data**: `(beneficiary: Address, token: Address, total: i128, cliff_ledger: u32, end_ledger: u32)`
+
+#### `vesting_claimed`
+
+- **Contract topic**: `vesting_claimed` (second topic: `schedule_id: u64`)
+- **Published data**: `(beneficiary: Address, claimed_now: i128, total_claimed: i128)`
+
+#### `vesting_cancelled`
+
+- **Contract topic**: `vesting_cancelled` (second topic: `schedule_id: u64`)
+- **Published data**: `(admin: Address, vested_unclaimed_paid: i128, unvested_returned: i128)`
+
 ## WebSocket realtime subscription guide
 
 WebSocket realtime streaming is implemented in `backend/src/modules/realtime/realtime-server.ts`.
