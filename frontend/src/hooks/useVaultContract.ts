@@ -527,6 +527,32 @@ export const useVaultContract = () => {
 // Fetch balance, config, and proposals in parallel
 const [accountInfo, configResult, proposalsResult] = await Promise.allSettled([
     server.getAccount(env.contractId) as Promise<unknown>,
+    readContractValue('get_config').catch(() => null),
+    // Inline event fetch to avoid forward-reference to getVaultEvents
+    (async () => {
+        const latestRes = await fetch(env.sorobanRpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getLatestLedger' }),
+        });
+        const latestData = await latestRes.json() as { result?: { sequence?: number } };
+        const latestLedger = latestData?.result?.sequence ?? 0;
+        const startLedger = Math.max(1, latestLedger - 50000);
+        const evRes = await fetch(env.sorobanRpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0', id: 2, method: 'getEvents',
+                params: {
+                    startLedger: String(startLedger),
+                    filters: [{ type: 'contract', contractIds: [env.contractId] }],
+                    pagination: { limit: 200 },
+                },
+            }),
+        });
+        const evData = await evRes.json() as { result?: { events?: RawEvent[] } };
+        return evData.result?.events ?? [];
+    })(),
     readContractValue('get_config').catch(() => null).then(r =>
         r ?? readContractValue('get_vault_config').catch(() => null)),
     fetchContractEvents().then(({ events }) => events as RawEvent[]),
@@ -624,16 +650,14 @@ return { totalBalance: balance, totalProposals, pendingApprovals, readyToExecute
         if (env.demoMode) {
             return { ...DEMO_VAULT_CONFIG };
         }
-        const [configRawPrimary, configRawLegacy, userRole, isSigner] = await Promise.all([
+        const [configRaw, userRole, isSigner] = await Promise.all([
             readContractValue('get_config').catch(() => null),
-            readContractValue('get_vault_config').catch(() => null),
             getUserRole(),
             address
                 ? readContractValue('is_signer', [new Address(address).toScVal()]).then((value) => Boolean(value)).catch(() => false)
                 : Promise.resolve(false),
         ]);
 
-        const configRaw = configRawPrimary ?? configRawLegacy;
         const configObject = ((configRaw && typeof configRaw === 'object') ? configRaw : {}) as Record<string, unknown>;
 
         const signers = parseSignerAddresses(configObject.signers);
@@ -812,6 +836,16 @@ return { totalBalance: balance, totalProposals, pendingApprovals, readyToExecute
         }
     };
 
+    const addSigner = async (_signer: string): Promise<string> => {
+        // The VaultDAO contract has no direct add_signer entry point.
+        // Signer set changes are governance actions: call update_config_signers
+        // via a propose_config_change proposal and execute it once approved.
+        // This function is intentionally not implemented as a direct contract
+        // call — use proposeTransfer / the Admin Panel governance flow instead.
+        throw new Error(
+            'Adding a signer requires a governance proposal (update_config_signers). ' +
+            'Please use the Admin Panel to raise a config-change proposal.'
+        );
     /**
      * The contract has no direct `add_signer`; signer changes go through
      * governance. This submits a `propose_vault_config_change` proposal with
@@ -1110,11 +1144,7 @@ return { totalBalance: balance, totalProposals, pendingApprovals, readyToExecute
     const getProposalSignatures = useCallback(async (proposalId: number) => {
         try {
 // Get the full signer list from vault config
-const [configPrimary, configLegacy] = await Promise.all([
-    readContractValue('get_config').catch(() => null),
-    readContractValue('get_vault_config').catch(() => null),
-]);
-const configRaw = configPrimary ?? configLegacy;
+const configRaw = await readContractValue('get_config').catch(() => null);
 const configObject = ((configRaw && typeof configRaw === 'object') ? configRaw : {}) as Record<string, unknown>;
 const allSigners = parseSignerAddresses(configObject.signers);
 
