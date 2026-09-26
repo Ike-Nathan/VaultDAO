@@ -4043,7 +4043,7 @@ impl VaultDAO {
 
         // Stream must be active
         if stream.status != StreamStatus::Active {
-            return Err(VaultError::ProposalNotApproved);
+            return Err(VaultError::StreamNotActive);
         }
 
         // Reject dust payments before rate check (prevents bypass via tiny-amount spam)
@@ -9557,6 +9557,8 @@ impl VaultDAO {
         storage::increment_var_template_count(&env);
         storage::extend_instance_ttl(&env);
 
+        events::emit_var_template_created(&env, template_id, &name, &caller);
+
         Ok(template_id)
     }
 
@@ -9598,6 +9600,14 @@ impl VaultDAO {
         storage::set_var_template(&env, &template);
         storage::extend_instance_ttl(&env);
 
+        events::emit_var_template_updated(
+            &env,
+            template_id,
+            &template.name,
+            template.version,
+            &caller,
+        );
+
         Ok(())
     }
 
@@ -9626,6 +9636,8 @@ impl VaultDAO {
         template.updated_at = env.ledger().sequence() as u64;
         storage::set_var_template(&env, &template);
         storage::extend_instance_ttl(&env);
+
+        events::emit_var_template_deactivated(&env, template_id, &template.name, &caller);
 
         Ok(())
     }
@@ -13110,6 +13122,8 @@ impl VaultDAO {
             duration_ledgers,
         );
 
+        storage::create_audit_entry(&env, AuditAction::EscrowCreated, &funder, escrow_id);
+
         Ok(escrow_id)
     }
 
@@ -13255,6 +13269,8 @@ impl VaultDAO {
         storage::set_escrow(&env, &escrow);
 
         events::emit_escrow_released(&env, escrow_id, &recipient, amount_to_release, is_expired);
+
+        storage::create_audit_entry(&env, AuditAction::EscrowReleased, &caller, escrow_id);
 
         Ok(amount_to_release)
     }
@@ -13449,7 +13465,7 @@ impl VaultDAO {
         // Check if user already has an active lock
         if let Some(existing_lock) = storage::get_token_lock(&env, &owner) {
             if existing_lock.is_active {
-                return Err(VaultError::AlreadyApproved); // Reusing error for "already locked"
+                return Err(VaultError::LockAlreadyActive);
             }
         }
 
@@ -13476,6 +13492,8 @@ impl VaultDAO {
         storage::extend_instance_ttl(&env);
 
         events::emit_tokens_locked(&env, &owner, amount, duration, power_multiplier_bps);
+
+        storage::create_audit_entry(&env, AuditAction::TokensLocked, &owner, 0);
 
         Ok(())
     }
@@ -13779,6 +13797,8 @@ impl VaultDAO {
 
         events::emit_early_unlock(&env, &owner, return_amount, penalty_amount);
 
+        storage::create_audit_entry(&env, AuditAction::TokensUnlockedEarly, &owner, 0);
+
         Ok(return_amount)
     }
 
@@ -13822,6 +13842,8 @@ impl VaultDAO {
         storage::extend_instance_ttl(&env);
 
         events::emit_tokens_unlocked(&env, &owner, amount);
+
+        storage::create_audit_entry(&env, AuditAction::TokensUnlocked, &owner, 0);
 
         Ok(amount)
     }
@@ -14891,6 +14913,8 @@ impl VaultDAO {
             milestone_count,
         );
 
+        storage::create_audit_entry(&env, AuditAction::FundingRoundCreated, &proposer, round_id);
+
         Ok(round_id)
     }
 
@@ -14921,6 +14945,8 @@ impl VaultDAO {
 
         storage::set_funding_round(&env, &round);
         events::emit_funding_round_approved(&env, round_id, &approver);
+
+        storage::create_audit_entry(&env, AuditAction::FundingRoundApproved, &approver, round_id);
 
         Ok(())
     }
@@ -15111,6 +15137,8 @@ impl VaultDAO {
             percentage_bps,
         );
 
+        storage::create_audit_entry(&env, AuditAction::FundingRoundReleased, &releaser, round_id);
+
         Ok(amount)
     }
 
@@ -15146,6 +15174,8 @@ impl VaultDAO {
 
         storage::set_funding_round(&env, &round);
         events::emit_funding_round_cancelled(&env, round_id, &canceller);
+
+        storage::create_audit_entry(&env, AuditAction::FundingRoundCancelled, &canceller, round_id);
 
         Ok(())
     }
@@ -15939,6 +15969,8 @@ impl VaultDAO {
             amount_per_period,
         );
 
+        storage::create_audit_entry(&env, AuditAction::SubscriptionCreated, &subscriber, id);
+
         Ok(id)
     }
 
@@ -16040,6 +16072,8 @@ impl VaultDAO {
         storage::extend_instance_ttl(&env);
 
         events::emit_subscription_cancelled(&env, subscription_id, &caller);
+
+        storage::create_audit_entry(&env, AuditAction::SubscriptionCancelled, &caller, subscription_id);
 
         Ok(())
     }
@@ -17437,7 +17471,7 @@ impl VaultDAO {
         }
         let active = storage::get_active_vesting_count(&env);
         if active >= 100 {
-            return Err(VaultError::BatchTooLarge);
+            return Err(VaultError::VestingCapReached);
         }
         let reserved = storage::get_reserved_vesting(&env, &token_addr);
         if Self::available_balance(&env, &token_addr) < total {
@@ -17459,9 +17493,15 @@ impl VaultDAO {
         storage::set_vesting_schedule(&env, &schedule);
         storage::set_active_vesting_count(&env, active + 1);
         storage::set_reserved_vesting(&env, &token_addr, reserved + total);
-        env.events().publish(
-            (Symbol::new(&env, "vesting_created"), id),
-            (beneficiary, token_addr, total, cliff_ledger, end_ledger),
+        storage::create_audit_entry(&env, AuditAction::VestingCreated, &admin, id);
+        events::emit_vesting_created(
+            &env,
+            id,
+            &beneficiary,
+            &token_addr,
+            total,
+            cliff_ledger,
+            end_ledger,
         );
         Ok(id)
     }
@@ -17477,7 +17517,7 @@ impl VaultDAO {
     ) -> Result<i128, VaultError> {
         beneficiary.require_auth();
         let mut schedule =
-            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::ProposalNotFound)?;
+            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::VestingNotFound)?;
         if schedule.cancelled || schedule.beneficiary != beneficiary {
             return Err(VaultError::Unauthorized);
         }
@@ -17495,10 +17535,8 @@ impl VaultDAO {
             let active = storage::get_active_vesting_count(&env);
             storage::set_active_vesting_count(&env, active.saturating_sub(1));
         }
-        env.events().publish(
-            (Symbol::new(&env, "vesting_claimed"), schedule_id),
-            (beneficiary, claimable, schedule.claimed),
-        );
+        storage::create_audit_entry(&env, AuditAction::VestingClaimed, &beneficiary, schedule_id);
+        events::emit_vesting_claimed(&env, schedule_id, &beneficiary, claimable, schedule.claimed);
         Ok(claimable)
     }
 
@@ -17508,7 +17546,7 @@ impl VaultDAO {
             return Err(VaultError::Unauthorized);
         }
         let mut schedule =
-            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::ProposalNotFound)?;
+            storage::get_vesting_schedule(&env, schedule_id).ok_or(VaultError::VestingNotFound)?;
         if schedule.cancelled {
             return Ok(0);
         }
@@ -17539,10 +17577,8 @@ impl VaultDAO {
         );
         let active = storage::get_active_vesting_count(&env);
         storage::set_active_vesting_count(&env, active.saturating_sub(1));
-        env.events().publish(
-            (Symbol::new(&env, "vesting_cancelled"), schedule_id),
-            (admin, vested_unclaimed, unvested),
-        );
+        storage::create_audit_entry(&env, AuditAction::VestingCancelled, &admin, schedule_id);
+        events::emit_vesting_cancelled(&env, schedule_id, &admin, vested_unclaimed, unvested);
         Ok(unvested)
     }
 

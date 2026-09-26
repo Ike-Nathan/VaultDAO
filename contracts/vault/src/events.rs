@@ -2133,3 +2133,103 @@ pub fn emit_signers_replaced(env: &Env, actor: &Address, old_count: u32, new_cou
         (actor.clone(), old_count, new_count),
     );
 }
+
+// ============================================================================
+// Issue #1736: Variable Template CRUD Events
+// ============================================================================
+
+/// Emit when a variable-substitution template is created.
+///
+/// Topics: `("var_template_created", template_id)`
+/// Data:   `(name, creator)`
+pub fn emit_var_template_created(env: &Env, template_id: u64, name: &Symbol, creator: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "var_template_created"), template_id),
+        (name.clone(), creator.clone()),
+    );
+}
+
+/// Emit when a variable-substitution template is updated.
+///
+/// Topics: `("var_template_updated", template_id)`
+/// Data:   `(name, version, updater)`
+pub fn emit_var_template_updated(
+    env: &Env,
+    template_id: u64,
+    name: &Symbol,
+    version: u32,
+    updater: &Address,
+) {
+    env.events().publish(
+        (Symbol::new(env, "var_template_updated"), template_id),
+        (name.clone(), version, updater.clone()),
+    );
+}
+
+/// Emit when a variable-substitution template is deactivated.
+///
+/// Topics: `("var_template_deactivated", template_id)`
+/// Data:   `(name, admin)`
+pub fn emit_var_template_deactivated(env: &Env, template_id: u64, name: &Symbol, admin: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "var_template_deactivated"), template_id),
+        (name.clone(), admin.clone()),
+    );
+}
+
+// ============================================================================
+// Issue #1737: Vesting Events (moved from raw publish in lib.rs)
+// ============================================================================
+
+/// Emit when a vesting schedule is created.
+///
+/// Topics: `("vesting_created", schedule_id)`
+/// Data:   `(beneficiary, token, total, cliff_ledger, end_ledger)`
+pub fn emit_vesting_created(
+    env: &Env,
+    schedule_id: u64,
+    beneficiary: &Address,
+    token: &Address,
+    total: i128,
+    cliff_ledger: u32,
+    end_ledger: u32,
+) {
+    env.events().publish(
+        (Symbol::new(env, "vesting_created"), schedule_id),
+        (beneficiary.clone(), token.clone(), total, cliff_ledger, end_ledger),
+    );
+}
+
+/// Emit when vested tokens are claimed by the beneficiary.
+///
+/// Topics: `("vesting_claimed", schedule_id)`
+/// Data:   `(beneficiary, claimed_now, total_claimed)`
+pub fn emit_vesting_claimed(
+    env: &Env,
+    schedule_id: u64,
+    beneficiary: &Address,
+    claimed_now: i128,
+    total_claimed: i128,
+) {
+    env.events().publish(
+        (Symbol::new(env, "vesting_claimed"), schedule_id),
+        (beneficiary.clone(), claimed_now, total_claimed),
+    );
+}
+
+/// Emit when a vesting schedule is cancelled by an admin.
+///
+/// Topics: `("vesting_cancelled", schedule_id)`
+/// Data:   `(admin, vested_unclaimed_paid, unvested_returned)`
+pub fn emit_vesting_cancelled(
+    env: &Env,
+    schedule_id: u64,
+    admin: &Address,
+    vested_unclaimed_paid: i128,
+    unvested_returned: i128,
+) {
+    env.events().publish(
+        (Symbol::new(env, "vesting_cancelled"), schedule_id),
+        (admin.clone(), vested_unclaimed_paid, unvested_returned),
+    );
+}
