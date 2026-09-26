@@ -338,8 +338,6 @@ fn calculate_impact_score(
 // #[cfg(test)]
 // mod test_retry;
 // #[cfg(test)]
-// mod test_staking;
-// #[cfg(test)]
 // mod test_stream_burst_config;
 // #[cfg(test)]
 // mod test_streaming;
@@ -373,8 +371,6 @@ mod test_spending_refund_buckets;
 // mod test_token_limits;
 // #[cfg(test)]
 // mod test_swap_multi_token;
-// #[cfg(test)]
-// mod test_token_insurance;
 // #[cfg(test)]
 // mod test_token_allowlist;
 // #[cfg(test)]
@@ -477,8 +473,6 @@ mod test_notification_prefs;
 // mod test_regressions;
 // #[cfg(test)]
 // mod test_retry;
-// #[cfg(test)]
-// mod test_staking;
 #[cfg(test)]
 mod test_staking_slashing;
 // #[cfg(test)]
@@ -554,6 +548,14 @@ mod test_notification_index_cap;
 mod test_earmarked_balances;
 mod test_voting_deadline;
 
+#[cfg(test)]
+mod test_staking;
+#[cfg(test)]
+mod test_insurance_governance;
+#[cfg(test)]
+mod test_insurance_premium;
+#[cfg(test)]
+mod test_token_insurance;
 #[cfg(test)]
 pub mod mock_oracle {
     use crate::types::VaultPriceData;
