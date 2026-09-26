@@ -498,6 +498,9 @@ pub enum VaultError {
     LockAlreadyActive = 1162,
     /// Active vesting schedule cap has been reached
     VestingCapReached = 1163,
+    // Issue #1748: Storage schema versioning
+    /// Stored schema version does not match this contract build; call `migrate`
+    SchemaVersionMismatch = 1140,
 }
 
 // Compatibility markers for CI source checks:
