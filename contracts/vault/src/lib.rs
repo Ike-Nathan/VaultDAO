@@ -13336,6 +13336,8 @@ impl VaultDAO {
             duration_ledgers,
         );
 
+        storage::create_audit_entry(&env, AuditAction::EscrowCreated, &funder, escrow_id);
+
         Ok(escrow_id)
     }
 
@@ -13481,6 +13483,8 @@ impl VaultDAO {
         storage::set_escrow(&env, &escrow);
 
         events::emit_escrow_released(&env, escrow_id, &recipient, amount_to_release, is_expired);
+
+        storage::create_audit_entry(&env, AuditAction::EscrowReleased, &caller, escrow_id);
 
         Ok(amount_to_release)
     }
@@ -13702,6 +13706,8 @@ impl VaultDAO {
         storage::extend_instance_ttl(&env);
 
         events::emit_tokens_locked(&env, &owner, amount, duration, power_multiplier_bps);
+
+        storage::create_audit_entry(&env, AuditAction::TokensLocked, &owner, 0);
 
         Ok(())
     }
@@ -14005,6 +14011,8 @@ impl VaultDAO {
 
         events::emit_early_unlock(&env, &owner, return_amount, penalty_amount);
 
+        storage::create_audit_entry(&env, AuditAction::TokensUnlockedEarly, &owner, 0);
+
         Ok(return_amount)
     }
 
@@ -14048,6 +14056,8 @@ impl VaultDAO {
         storage::extend_instance_ttl(&env);
 
         events::emit_tokens_unlocked(&env, &owner, amount);
+
+        storage::create_audit_entry(&env, AuditAction::TokensUnlocked, &owner, 0);
 
         Ok(amount)
     }
@@ -15117,6 +15127,8 @@ impl VaultDAO {
             milestone_count,
         );
 
+        storage::create_audit_entry(&env, AuditAction::FundingRoundCreated, &proposer, round_id);
+
         Ok(round_id)
     }
 
@@ -15147,6 +15159,8 @@ impl VaultDAO {
 
         storage::set_funding_round(&env, &round);
         events::emit_funding_round_approved(&env, round_id, &approver);
+
+        storage::create_audit_entry(&env, AuditAction::FundingRoundApproved, &approver, round_id);
 
         Ok(())
     }
@@ -15337,6 +15351,8 @@ impl VaultDAO {
             percentage_bps,
         );
 
+        storage::create_audit_entry(&env, AuditAction::FundingRoundReleased, &releaser, round_id);
+
         Ok(amount)
     }
 
@@ -15372,6 +15388,8 @@ impl VaultDAO {
 
         storage::set_funding_round(&env, &round);
         events::emit_funding_round_cancelled(&env, round_id, &canceller);
+
+        storage::create_audit_entry(&env, AuditAction::FundingRoundCancelled, &canceller, round_id);
 
         Ok(())
     }
@@ -16165,6 +16183,8 @@ impl VaultDAO {
             amount_per_period,
         );
 
+        storage::create_audit_entry(&env, AuditAction::SubscriptionCreated, &subscriber, id);
+
         Ok(id)
     }
 
@@ -16266,6 +16286,8 @@ impl VaultDAO {
         storage::extend_instance_ttl(&env);
 
         events::emit_subscription_cancelled(&env, subscription_id, &caller);
+
+        storage::create_audit_entry(&env, AuditAction::SubscriptionCancelled, &caller, subscription_id);
 
         Ok(())
     }
@@ -17660,6 +17682,7 @@ impl VaultDAO {
         storage::set_vesting_schedule(&env, &schedule);
         storage::set_active_vesting_count(&env, active + 1);
         storage::set_reserved_vesting(&env, &token_addr, reserved + total);
+        storage::create_audit_entry(&env, AuditAction::VestingCreated, &admin, id);
         events::emit_vesting_created(
             &env,
             id,
@@ -17701,6 +17724,7 @@ impl VaultDAO {
             let active = storage::get_active_vesting_count(&env);
             storage::set_active_vesting_count(&env, active.saturating_sub(1));
         }
+        storage::create_audit_entry(&env, AuditAction::VestingClaimed, &beneficiary, schedule_id);
         events::emit_vesting_claimed(&env, schedule_id, &beneficiary, claimable, schedule.claimed);
         Ok(claimable)
     }
@@ -17742,6 +17766,7 @@ impl VaultDAO {
         );
         let active = storage::get_active_vesting_count(&env);
         storage::set_active_vesting_count(&env, active.saturating_sub(1));
+        storage::create_audit_entry(&env, AuditAction::VestingCancelled, &admin, schedule_id);
         events::emit_vesting_cancelled(&env, schedule_id, &admin, vested_unclaimed, unvested);
         Ok(unvested)
     }

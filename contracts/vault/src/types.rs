@@ -1340,6 +1340,21 @@ pub enum AuditAction {
     AmendProposal = 11,
     /// Entire signer set replaced via governance-approved proposal (#1692)
     SignersReplaced = 12,
+    // Issue #1738: fund-movement audit coverage
+    VestingCreated = 13,
+    VestingClaimed = 14,
+    VestingCancelled = 15,
+    TokensLocked = 16,
+    TokensUnlocked = 17,
+    TokensUnlockedEarly = 18,
+    EscrowCreated = 19,
+    EscrowReleased = 20,
+    FundingRoundCreated = 21,
+    FundingRoundApproved = 22,
+    FundingRoundReleased = 23,
+    FundingRoundCancelled = 24,
+    SubscriptionCreated = 25,
+    SubscriptionCancelled = 26,
 }
 
 /// Audit trail entry with cryptographic verification
