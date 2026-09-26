@@ -302,15 +302,11 @@ fn calculate_impact_score(
 // #[cfg(test)]
 // mod test_hooks;
 // #[cfg(test)]
-// mod test_circular_dependency;
-// #[cfg(test)]
 // mod test_cold_signature_replay;
 // #[cfg(test)]
 // mod test_merge;
 // #[cfg(test)]
 // mod test_notification_prefs;
-// #[cfg(test)]
-// mod test_threshold_reduction;
 // #[cfg(test)]
 // mod test_recurring;
 // #[cfg(test)]
@@ -334,8 +330,6 @@ fn calculate_impact_score(
 // #[cfg(test)]
 // mod test_reentrancy;
 // #[cfg(test)]
-// mod test_regressions;
-// #[cfg(test)]
 // mod test_retry;
 // #[cfg(test)]
 // mod test_stream_burst_config;
@@ -345,8 +339,6 @@ fn calculate_impact_score(
 // mod test_subscriptions;
 // #[cfg(test)]
 // mod test_subscription_downgrade_grace;
-// #[cfg(test)]
-// mod test_proposal_expiration;
 // #[cfg(test)]
 // mod test_tag_taxonomy;
 // #[cfg(test)]
@@ -370,15 +362,11 @@ mod test_spending_refund_buckets;
 // #[cfg(test)]
 // mod test_token_allowlist;
 // #[cfg(test)]
-// mod test_proposal_amendment;
-// #[cfg(test)]
 // mod test_overflow_checks;
 // #[cfg(test)]
 // mod test_delegation_depth;
 // #[cfg(test)]
 // mod test_stream_autocomplete;
-// #[cfg(test)]
-// mod test_proposal_management;
 
 // #[cfg(test)]
 // #[cfg(test)]
@@ -399,8 +387,6 @@ mod test_audit;
 mod test_batch_dependencies;
 #[cfg(test)]
 mod test_cache_invalidation;
-// #[cfg(test)]
-// mod test_circular_dependency;
 // #[cfg(test)]
 // mod test_cold_signature_replay;
 #[cfg(test)]
@@ -450,10 +436,6 @@ mod test_merge;
 #[cfg(test)]
 mod test_notification_prefs;
 // #[cfg(test)]
-// mod test_proposal_expiration;
-// #[cfg(test)]
-// mod test_proposal_management;
-// #[cfg(test)]
 // mod test_rbac_consistency;
 // #[cfg(test)]
 // mod test_recurring;
@@ -465,8 +447,6 @@ mod test_notification_prefs;
 // mod test_recurring_dryrun;
 // #[cfg(test)]
 // mod test_reentrancy;
-// #[cfg(test)]
-// mod test_regressions;
 // #[cfg(test)]
 // mod test_retry;
 #[cfg(test)]
@@ -514,8 +494,6 @@ mod test_tags;
 mod test_threshold_min_init;
 #[cfg(test)]
 mod test_whitelist_proposal;
-// #[cfg(test)]
-// mod test_threshold_reduction;
 #[cfg(test)]
 mod test_max_concurrent_streams_per_recipient;
 #[cfg(test)]
@@ -558,6 +536,20 @@ mod test_multi_token;
 mod test_swap_multi_token;
 #[cfg(test)]
 mod test_token_limits;
+#[cfg(test)]
+mod test_proposal_expiration;
+#[cfg(test)]
+mod test_proposal_management;
+#[cfg(test)]
+mod test_proposal_amendment;
+#[cfg(test)]
+mod test_proposal_ttl_extension_on_read;
+#[cfg(test)]
+mod test_circular_dependency;
+#[cfg(test)]
+mod test_threshold_reduction;
+#[cfg(test)]
+mod test_regressions;
 #[cfg(test)]
 pub mod mock_oracle {
     use crate::types::VaultPriceData;
